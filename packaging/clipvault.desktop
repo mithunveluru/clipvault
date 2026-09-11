@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=ClipVault
+GenericName=Clipboard Manager
+Comment=Local-first clipboard history
+Exec=clipvault
+Icon=clipvault
+Terminal=false
+Categories=Utility;
+Keywords=clipboard;history;paste;
+StartupNotify=false
