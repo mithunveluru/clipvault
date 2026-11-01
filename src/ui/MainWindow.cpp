@@ -412,6 +412,8 @@ void MainWindow::openSettings()
                 flashStatus(tr("Could not clear source information."));
         });
     }
+    if (m_semantic)
+        dialog.setSemanticIndex(*m_semantic);
     dialog.exec();
 }
 
