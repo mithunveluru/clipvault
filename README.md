@@ -209,9 +209,9 @@ Copies held by Qt or by other programs are out of its reach.
 - **Copy-back warning.** Putting a secret back on the clipboard arms a warning
   that fires if focus moves to an app on the risky list (Slack, Discord,
   Signal, Telegram, Teams, Zoom and Element by default). It stays armed until
-  the secret's timer runs out or you copy something else. This is best effort:
-  it depends on the focus tracker, and it cannot see what the other app does
-  with the paste.
+  the secret's timer runs out or ClipVault captures another copy. This is best
+  effort: it depends on the focus tracker, and it cannot see what the other app
+  does with the paste.
 - **Limits.** Detection is pattern based, so it misses secrets in unusual
   formats and sometimes flags harmless random strings. Turning the radar on
   does not touch entries stored before it was on. The timer does not run
@@ -247,7 +247,8 @@ and Seahorse.
   That is a same-user check, not a sandbox boundary. Without either, entries
   are stored without a source.
 - **Secrets.** A secret's source never keeps a path that contains the secret,
-  and its path and title stay hidden while it is masked.
+  and its path and title stay hidden in the list and detail view while it is
+  masked. A `title:` search can still match a masked secret's window title.
 
 ## Search syntax
 
