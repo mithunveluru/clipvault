@@ -37,6 +37,7 @@ private:
     };
     [[nodiscard]] Drain drainEvents();
     void scheduleDrain();
+    void scheduleRefresh();
     void readEvents();
     void refresh();
     [[nodiscard]] std::uint32_t activeWindow() const;
@@ -47,6 +48,7 @@ private:
     // declared after the connection so it goes away before the socket closes
     std::unique_ptr<QSocketNotifier> m_notifier;
     bool m_drainQueued = false;
+    bool m_refreshQueued = false;
     std::uint32_t m_root = 0;
     std::uint32_t m_watched = 0;
     std::uint32_t m_netActiveWindow = 0;

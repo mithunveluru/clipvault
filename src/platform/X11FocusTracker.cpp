@@ -25,26 +25,29 @@ template <typename T> using Reply = std::unique_ptr<T, FreeDeleter>;
 constexpr std::uint32_t kMaxPropertyWords = 1024;
 // bounds the work done per wakeup of the event loop
 constexpr int kMaxEventsPerDrain = 256;
-constexpr int kMaxRefreshesPerWakeup = 4;
 // the top bit marks events sent by another client
 constexpr std::uint8_t kEventTypeMask = 0x7f;
 // ewmh source indication for a pager which window managers honour without focus stealing checks
 constexpr std::uint32_t kSourcePager = 2;
 
-QByteArray readProperty(xcb_connection_t* connection, xcb_window_t window, xcb_atom_t atom, xcb_atom_t type)
+xcb_get_property_cookie_t requestProperty(
+    xcb_connection_t* connection, xcb_window_t window, xcb_atom_t atom, xcb_atom_t type, std::uint32_t words)
 {
-    const Reply<xcb_get_property_reply_t> reply(xcb_get_property_reply(
-        connection, xcb_get_property(connection, 0, window, atom, type, 0, kMaxPropertyWords), nullptr));
+    return xcb_get_property(connection, 0, window, atom, type, 0, words);
+}
+
+QByteArray textReply(xcb_connection_t* connection, xcb_get_property_cookie_t cookie)
+{
+    const Reply<xcb_get_property_reply_t> reply(xcb_get_property_reply(connection, cookie, nullptr));
     if (!reply || reply->format != 8)
         return { };
     return { static_cast<const char*>(xcb_get_property_value(reply.get())),
         xcb_get_property_value_length(reply.get()) };
 }
 
-std::uint32_t cardinal(xcb_connection_t* connection, xcb_window_t window, xcb_atom_t atom, xcb_atom_t type)
+std::uint32_t cardinalReply(xcb_connection_t* connection, xcb_get_property_cookie_t cookie)
 {
-    const Reply<xcb_get_property_reply_t> reply(xcb_get_property_reply(
-        connection, xcb_get_property(connection, 0, window, atom, type, 0, 1), nullptr));
+    const Reply<xcb_get_property_reply_t> reply(xcb_get_property_reply(connection, cookie, nullptr));
     if (!reply || reply->format != 32 || xcb_get_property_value_length(reply.get()) < 4)
         return 0;
     return *static_cast<const std::uint32_t*>(xcb_get_property_value(reply.get()));
@@ -139,17 +142,12 @@ X11FocusTracker::Drain X11FocusTracker::drainEvents()
 void X11FocusTracker::readEvents()
 {
     m_drainQueued = false;
-    // replies read during refresh can queue further events that the notifier never reports
-    for (int round = 0; round < kMaxRefreshesPerWakeup; ++round) {
-        const Drain drain = drainEvents();
-        // one refresh covers every change in the batch
-        if (drain.changed)
-            refresh();
-        else if (!drain.more)
-            return;
-    }
+    const Drain drain = drainEvents();
+    if (drain.changed)
+        scheduleRefresh();
     // a client spamming properties must not starve the event loop so the rest waits for the next pass
-    scheduleDrain();
+    if (drain.more)
+        scheduleDrain();
 }
 
 void X11FocusTracker::scheduleDrain()
@@ -160,28 +158,51 @@ void X11FocusTracker::scheduleDrain()
     QTimer::singleShot(0, this, &X11FocusTracker::readEvents);
 }
 
+// any number of changes seen before the next pass of the event loop collapse into one refresh
+void X11FocusTracker::scheduleRefresh()
+{
+    if (m_refreshQueued)
+        return;
+    m_refreshQueued = true;
+    QTimer::singleShot(0, this, [this] {
+        m_refreshQueued = false;
+        refresh();
+        // replies read during refresh can queue events that the notifier never reports
+        scheduleDrain();
+    });
+}
+
 std::uint32_t X11FocusTracker::activeWindow() const
 {
-    return cardinal(m_connection.get(), m_root, m_netActiveWindow, XCB_ATOM_WINDOW);
+    xcb_connection_t* c = m_connection.get();
+    return cardinalReply(c, requestProperty(c, m_root, m_netActiveWindow, XCB_ATOM_WINDOW, 1));
 }
 
 WindowInfo X11FocusTracker::describe(std::uint32_t window) const
 {
     xcb_connection_t* c = m_connection.get();
+    // every request goes out before any reply is awaited so a busy server costs one round trip
+    const xcb_get_property_cookie_t wmClassCookie
+        = requestProperty(c, window, XCB_ATOM_WM_CLASS, XCB_ATOM_STRING, kMaxPropertyWords);
+    const xcb_get_property_cookie_t netNameCookie
+        = requestProperty(c, window, m_netWmName, m_utf8String, kMaxPropertyWords);
+    const xcb_get_property_cookie_t nameCookie
+        = requestProperty(c, window, XCB_ATOM_WM_NAME, XCB_ATOM_ANY, kMaxPropertyWords);
+    const xcb_get_property_cookie_t pidCookie = requestProperty(c, window, m_netWmPid, XCB_ATOM_CARDINAL, 1);
+
     WindowInfo info;
     info.windowId = window;
-
     // instance and class come as two nul terminated strings
-    const QList<QByteArray> wmClass = readProperty(c, window, XCB_ATOM_WM_CLASS, XCB_ATOM_STRING).split('\0');
+    const QList<QByteArray> wmClass = textReply(c, wmClassCookie).split('\0');
     info.windowClass = QString::fromLatin1(wmClass.value(1));
     info.app = QString::fromLatin1(wmClass.value(0));
     if (info.app.isEmpty())
         info.app = info.windowClass;
-
-    info.title = QString::fromUtf8(readProperty(c, window, m_netWmName, m_utf8String));
+    info.title = QString::fromUtf8(textReply(c, netNameCookie));
+    const QByteArray legacyName = textReply(c, nameCookie);
     if (info.title.isEmpty())
-        info.title = QString::fromLatin1(readProperty(c, window, XCB_ATOM_WM_NAME, XCB_ATOM_ANY));
-    info.pid = cardinal(c, window, m_netWmPid, XCB_ATOM_CARDINAL);
+        info.title = QString::fromLatin1(legacyName);
+    info.pid = cardinalReply(c, pidCookie);
     return info;
 }
 
