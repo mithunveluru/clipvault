@@ -122,7 +122,7 @@ shortcut → show the tray icon, and the reverse on shutdown.
 | | |
 |---|---|
 | Compiler | GCC 13+ or Clang 16+ (C++20) |
-| Qt | 6.2 or newer — Core, Gui, Widgets, Sql, Network, Test |
+| Qt | 6.2 or newer — Core, Concurrent, DBus, Gui, Widgets, Sql, Network, Test |
 | SQLite | via the Qt `QSQLITE` driver plugin |
 | CMake | 3.21+ |
 
@@ -252,6 +252,9 @@ CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 ```bash
 ctest --test-dir build --output-on-failure
 ```
+
+CI runs the same command under `xvfb-run`. The `no_network` gate needs `strace`,
+`xvfb-run` and `dbus-run-session`, and is registered only when all three exist.
 
 70 cases across five suites. Every suite builds its own database in a temporary
 directory — the tests never read or modify your real history.
