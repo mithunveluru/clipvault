@@ -24,6 +24,12 @@ public:
         // seconds until an in memory secret is wiped or minus one
         RemainingRole,
         RevealedRole,
+        // one line app plus path or title and empty without a source
+        SourceRole,
+        // app id or window class used for the app filter
+        SourceAppRole,
+        // path when known or else the title
+        SourceDetailRole,
     };
 
     explicit ClipboardListModel(QObject* parent = nullptr);
@@ -51,6 +57,9 @@ private:
 
 // Collapses an entry to one readable line
 QString previewOf(const QString& content);
+
+// app followed by the path or else the title
+QString sourceLineOf(const Provenance& source);
 
 QString relativeTime(const QDateTime& when, const QDateTime& now);
 

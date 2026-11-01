@@ -58,6 +58,15 @@ QString secretMask()
     return QString(12, QChar(0x2022));
 }
 
+QString sourceLineOf(const Provenance& source)
+{
+    const QString app = source.app.isEmpty() ? source.windowClass : source.app;
+    const QString detail = source.path.isEmpty() ? source.title : source.path;
+    if (app.isEmpty() || detail.isEmpty())
+        return app.isEmpty() ? detail : app;
+    return QStringLiteral("%1  \u00b7  %2").arg(app, detail);
+}
+
 ClipboardListModel::ClipboardListModel(QObject* parent)
     : QAbstractListModel(parent)
 {
@@ -145,6 +154,9 @@ QVariant ClipboardListModel::data(const QModelIndex& index, int role) const
     case TypeRole:      return static_cast<int>(item.type);
     case PinnedRole:    return item.pinned;
     case CreatedAtRole: return item.createdAt;
+    case SourceRole:    return sourceLineOf(item.source);
+    case SourceAppRole: return item.source.app.isEmpty() ? item.source.windowClass : item.source.app;
+    case SourceDetailRole: return item.source.path.isEmpty() ? item.source.title : item.source.path;
     case Qt::AccessibleTextRole:
         return QStringLiteral("%1, %2, %3")
             .arg(masked ? tr("hidden %1").arg(secretKindLabel(item.secretKind)) : toString(item.type),

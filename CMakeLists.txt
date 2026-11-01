@@ -45,6 +45,7 @@ add_library(clipvault_lib STATIC
     src/ui/ClipboardListModel.cpp
     src/ui/ClipboardItemDelegate.cpp
     src/ui/SettingsDialog.cpp
+    src/ui/ProvenanceDialog.cpp
     src/ui/MainWindow.cpp
     src/app/TrayIcon.cpp
     src/app/ApplicationController.cpp
@@ -79,6 +80,7 @@ add_library(clipvault_lib STATIC
     src/ui/ClipboardListModel.h
     src/ui/ClipboardItemDelegate.h
     src/ui/SettingsDialog.h
+    src/ui/ProvenanceDialog.h
     src/ui/MainWindow.h
     src/app/TrayIcon.h
     src/app/ApplicationController.h
@@ -98,6 +100,7 @@ set(CLIPVAULT_STRICT_SOURCES
     src/services/SecretCopyWarner.cpp
     src/platform/GnomeShellFocusTracker.cpp
     src/services/ProvenanceService.cpp
+    src/ui/ProvenanceDialog.cpp
 )
 
 # the x11 focus tracker is optional and the factory falls back without it

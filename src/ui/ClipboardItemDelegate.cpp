@@ -5,6 +5,7 @@
 
 #include <QApplication>
 #include <QDateTime>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 
@@ -14,6 +15,7 @@ namespace {
 constexpr int kPadding = 10;
 constexpr int kBadgeSize = 28;
 constexpr int kBadgeGap = 12;
+constexpr int kChipPadding = 6;
 
 QString glyphFor(ClipboardType type)
 {
@@ -34,6 +36,13 @@ QColor blend(const QColor& a, const QColor& b, qreal factor)
                             a.blueF() * (1 - factor) + b.blueF() * factor);
 }
 
+QFont metaFontOf(const QFont& base)
+{
+    QFont font = base;
+    font.setPointSizeF(font.pointSizeF() * 0.85);
+    return font;
+}
+
 } // namespace
 
 ClipboardItemDelegate::ClipboardItemDelegate(QObject* parent)
@@ -50,9 +59,37 @@ QDateTime ClipboardItemDelegate::referenceTime() const
     return m_now;
 }
 
-QSize ClipboardItemDelegate::sizeHint(const QStyleOptionViewItem& option, const QModelIndex&) const
+QSize ClipboardItemDelegate::sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
-    return { option.rect.width(), kRowHeight };
+    if (index.data(ClipboardListModel::SourceRole).toString().isEmpty())
+        return { option.rect.width(), kRowHeight };
+    return { option.rect.width(), kRowHeight + QFontMetrics(metaFontOf(option.font)).height() + 2 };
+}
+
+QRect ClipboardItemDelegate::appChipRect(const QStyleOptionViewItem& option, const QModelIndex& index) const
+{
+    const QString app = index.data(ClipboardListModel::SourceAppRole).toString();
+    if (app.isEmpty())
+        return { };
+    const QRect row = option.rect.adjusted(4, 2, -4, -2);
+    const int left = row.left() + kPadding + kBadgeSize - 1 + kBadgeGap;
+    const QFontMetrics metaMetrics(metaFontOf(option.font));
+    const int top = row.top() + 8 + QFontMetrics(option.font).height() + metaMetrics.height() + 2;
+    const int width = qMin(metaMetrics.horizontalAdvance(app) + 2 * kChipPadding, (row.right() - left) / 2);
+    return { left, top, width, metaMetrics.height() };
+}
+
+bool ClipboardItemDelegate::editorEvent(QEvent* event, QAbstractItemModel* model,
+                                        const QStyleOptionViewItem& option, const QModelIndex& index)
+{
+    if (event->type() == QEvent::MouseButtonRelease) {
+        const auto* mouse = static_cast<QMouseEvent*>(event);
+        if (mouse->button() == Qt::LeftButton && appChipRect(option, index).contains(mouse->position().toPoint())) {
+            emit appChipClicked(index.data(ClipboardListModel::SourceAppRole).toString());
+            return true;
+        }
+    }
+    return QStyledItemDelegate::editorEvent(event, model, option, index);
 }
 
 void ClipboardItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option,
@@ -144,6 +181,27 @@ void ClipboardItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem&
                          metaMetrics.height());
     painter->drawText(metaRect, Qt::AlignLeft | Qt::AlignVCenter,
                       metaMetrics.elidedText(meta, Qt::ElideRight, textArea.width()));
+
+    const QString source = index.data(ClipboardListModel::SourceRole).toString();
+    if (!source.isEmpty()) {
+        const QString app = index.data(ClipboardListModel::SourceAppRole).toString();
+        QRect sourceRect(textArea.left(), metaRect.bottom() + 2, textArea.width(), metaMetrics.height());
+        const QRect chip = appChipRect(opt, index);
+        if (chip.isValid()) {
+            QPainterPath chipPath;
+            chipPath.addRoundedRect(chip, 4, 4);
+            // translucent text colour reads on both the plain and the selected row
+            QColor chipFill = primary;
+            chipFill.setAlphaF(0.15);
+            painter->fillPath(chipPath, chipFill);
+            painter->drawText(chip, Qt::AlignCenter,
+                              metaMetrics.elidedText(app, Qt::ElideRight, chip.width() - 2 * kChipPadding));
+            sourceRect.setLeft(chip.right() + kChipPadding);
+        }
+        const QString detail = index.data(ClipboardListModel::SourceDetailRole).toString();
+        painter->drawText(sourceRect, Qt::AlignLeft | Qt::AlignVCenter,
+                          metaMetrics.elidedText(detail, Qt::ElideMiddle, sourceRect.width()));
+    }
 
     painter->restore();
 }

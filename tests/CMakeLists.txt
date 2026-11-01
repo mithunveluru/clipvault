@@ -30,6 +30,7 @@ set(CLIPVAULT_STRICT_TESTS
     test_focus_tracker_adversarial
     test_search_parse
     test_provenance_service
+    test_source_line
 )
 if(XCB_FOUND)
     list(APPEND CLIPVAULT_STRICT_TESTS test_x11_focus_tracker test_x11_focus_tracker_adversarial)
