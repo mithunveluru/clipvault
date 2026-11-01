@@ -103,7 +103,7 @@ bool tailLooksRandom(const Rule& rule, const QRegularExpressionMatch& match)
     if (!rule.generic)
         return true;
     const QStringView value = match.capturedView(match.lastCapturedIndex());
-    // config.secret2 or next_token1 is a reference to a value and not the value
+    // a dotted or snake case name refers to a value and is not the value
     static const QRegularExpression identifier(
         QStringLiteral(R"(^[A-Za-z_][A-Za-z0-9_]*([._][A-Za-z0-9_]+)+$)"));
     if (isPasswordRule(rule) && identifier.match(value).hasMatch())
