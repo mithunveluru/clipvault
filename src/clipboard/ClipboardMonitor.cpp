@@ -60,6 +60,21 @@ void ClipboardMonitor::writeBack(const QString& text)
     qCDebug(lcClip) << "clipboard updated from history" << redact(text);
 }
 
+void ClipboardMonitor::clearIfHolds(const QString& text)
+{
+    // drop our own references so the caller can wipe the only copy
+    if (m_lastCapturedText == text)
+        m_lastCapturedText.clear();
+    if (m_selfWrittenText == text) {
+        m_selfWrittenText.clear();
+        m_hasSelfWrite = false;
+    }
+    if (!m_clipboard || m_clipboard->text(QClipboard::Clipboard) != text)
+        return;
+    m_clipboard->clear(QClipboard::Clipboard);
+    qCInfo(lcClip) << "cleared an expired secret from the clipboard";
+}
+
 void ClipboardMonitor::onClipboardChanged()
 {
     if (!m_clipboard)
