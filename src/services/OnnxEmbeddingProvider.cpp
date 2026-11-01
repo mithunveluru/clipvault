@@ -164,7 +164,20 @@ QList<Embedding> OnnxEmbeddingProvider::embed(const QStringList& texts)
 {
     if (m_failure != ProviderFailure::None || !m_runtime || texts.isEmpty())
         return { };
+    // one sequence per run because padding a short clip to a long neighbour costs more than the extra calls
+    QList<Embedding> out;
+    out.reserve(texts.size());
+    for (const QString& text : texts) {
+        QList<Embedding> one = run({ text });
+        if (one.size() != 1)
+            return { };
+        out << one.front();
+    }
+    return out;
+}
 
+QList<Embedding> OnnxEmbeddingProvider::run(const QStringList& texts)
+{
     std::vector<std::vector<std::int64_t>> encoded;
     encoded.reserve(static_cast<size_t>(texts.size()));
     size_t length = 0;

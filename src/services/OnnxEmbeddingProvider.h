@@ -58,6 +58,8 @@ private:
     struct Runtime;
 
     void fail(ProviderFailure failure, QString reason);
+    // padded batch through the session
+    [[nodiscard]] QList<Embedding> run(const QStringList& texts);
 
     std::unique_ptr<WordPieceTokenizer> m_tokenizer;
     std::unique_ptr<Runtime> m_runtime;
