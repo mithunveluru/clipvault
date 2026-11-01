@@ -10,6 +10,7 @@
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QLoggingCategory>
 #include <QTemporaryDir>
 #include <QTextStream>
 
@@ -49,6 +50,8 @@ QString sampleContent(int index)
 int main(int argc, char** argv)
 {
     QCoreApplication app(argc, argv);
+    // per insert debug lines skew the timings
+    QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false\n*.info=false"));
     const int total = argc > 1 ? QString::fromLatin1(argv[1]).toInt() : 10000;
 
     QTextStream out(stdout);
