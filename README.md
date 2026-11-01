@@ -361,7 +361,7 @@ ctest --test-dir build --output-on-failure
 CI runs the same command under `xvfb-run`. The `no_network` gate needs `strace`,
 `xvfb-run` and `dbus-run-session`, and is registered only when all three exist.
 
-31 QtTest suites with 226 test functions, plus the `no_network` gate. QtTest
+31 QtTest suites with 225 test functions, plus the `no_network` gate. QtTest
 reports 322 passes because it also counts data rows and each suite's setup and
 teardown. A semantic build adds `test_onnx_embedding`, which runs against the
 real model only when `CLIPVAULT_TEST_MODEL_DIR` points at it. The two X11
@@ -403,7 +403,7 @@ estimates.
 The insert, search and headless memory rows are from 2026-11-02, after secret
 radar, clip sources and semantic search, as the median of five runs pinned to
 one core with `tools/bench.sh`. The other rows are from the first release.
-Search is about 35–50% slower than before those features; see
+Search is about 35–50% slower than in the first release; see
 [design notes](docs/design-notes.md).
 
 Search is a SQLite `LIKE` scan. At this size it is far below the threshold where

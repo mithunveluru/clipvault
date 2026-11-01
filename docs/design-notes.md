@@ -71,19 +71,19 @@ must paste back precisely what was copied, so `" foo"` and `"foo"` are
 genuinely different entries. Only entries that are entirely whitespace are
 rejected.
 
-## Why there is only one worker thread
+## Why there is only one long lived worker thread
 
 `QClipboard` has thread affinity, and the work per capture is a string read, a
 hash and one indexed insert — measured at 0.14 ms. Worker threads would buy
 nothing and cost correctness. Database and clipboard access stay on the GUI
 thread; `gsettings`, above, also runs off it.
 
-Optional semantic search adds the one worker thread. Hashing the 90 MB model
+Optional semantic search adds one worker thread. Hashing the 90 MB model
 and running one embedding take long enough to freeze the window and capture
 on the GUI thread. The worker only turns text into vectors and never touches
 `QClipboard` or the database; results come back by queued signal and the GUI
-thread does every write. The thread exists only while semantic search is on
-and its model verifies. The full justification is in
+thread does every write. The thread exists only while semantic search is on,
+and stops if the model fails to verify. The full justification is in
 [semantic-search.md](semantic-search.md#threading).
 
 ## Storage decisions
@@ -218,11 +218,12 @@ the brief left open.
   the same user. The extension was tested only in a nested gnome-shell under
   xvfb and with a fake bus service, never in a live session.
 - **Search cost after these features.** On 2026-11-02 the Release bench was
-  run against the pre-feature binary, interleaved, three rounds of the median
-  of five pinned runs at load 1.6–2.1. Searches went from 0.22–0.90 ms to
-  0.33–1.23 ms, about 35–50% slower. Insert went from 0.115 to 0.12 ms, and
-  resident memory grew by about 450 kB. The cause has not been profiled. Rows
-  are wider and plain search adds a `secret_kind IS NULL` condition.
+  run against the first release binary, interleaved, three rounds of the
+  median of five pinned runs at load 1.6–2.1. Searches went from 0.22–0.90 ms
+  to 0.33–1.23 ms, about 35–50% slower, and resident memory grew by about
+  450 kB. The cause has not been profiled. Insert times are not comparable,
+  because the first release bench logged every insert and the current one
+  silences logging.
 - **Merging.** The first pull request was merged with the GitHub button, which
   recorded GitHub as committer. Every later merge was done locally with
   `git merge --no-ff` so the owner is author and committer, then pushed.
