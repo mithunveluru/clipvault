@@ -185,8 +185,8 @@ the brief left open.
 - **Opening a source.** No shell command is ever built. A directory opens as
   itself. A regular file opens directly only when its MIME type inherits
   text/plain, it is not executable, it is not a desktop entry or shell script,
-  and its suffix is not desktop, jar, flatpakref, flatpakrepo, exe or msi. Anything
-  else opens its folder. Paths are canonicalised, and anything under /proc,
+  and its suffix is not desktop, jar, flatpakref, flatpakrepo, exe or msi.
+  Anything else opens its folder. Paths are canonicalised, and anything under /proc,
   /sys or /dev is refused, including through a symlink. Paths from window
   titles reject file URLs, and relative names must stay inside their project
   directory; absolute paths in titles are accepted outside /proc, /sys and
