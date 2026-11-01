@@ -14,6 +14,7 @@ namespace clipvault {
 
 class ClipboardListModel;
 class HistoryService;
+class ProvenanceService;
 class SearchService;
 class SettingsService;
 
@@ -40,6 +41,8 @@ public:
     // False when nothing can reopen the window
     void setBackgroundReachable(bool reachable) { m_backgroundReachable = reachable; }
     void setDatabasePath(const QString& path) { m_databasePath = path; }
+    // optional and the source details stay unavailable without it
+    void setProvenanceService(ProvenanceService* provenance) { m_provenance = provenance; }
     // Content free message shown briefly in the footer
     void flashStatus(const QString& message);
 
@@ -48,6 +51,8 @@ signals:
     void itemChosen(const QString& content);
     // sent just before item chosen when the entry is a detected secret
     void secretChosen(qint64 id, const QString& kind);
+    // id of the item just written back so its paste target can be recorded
+    void itemCopiedOut(qint64 id);
     void pauseToggleRequested();
     void quitRequested();
 
@@ -71,10 +76,14 @@ private:
     void toggleRevealCurrent();
     void updateCountdown();
     void positionNearPointer();
+    void showSourceDetails();
+    void filterByApp(const QString& app);
+    void updateTitleNote();
 
     HistoryService& m_history;
     SearchService& m_search;
     SettingsService& m_settings;
+    ProvenanceService* m_provenance = nullptr;
 
     ClipboardListModel* m_model = nullptr;
     QLineEdit* m_searchEdit = nullptr;
@@ -82,6 +91,7 @@ private:
     QStackedWidget* m_stack = nullptr;
     QLabel* m_emptyLabel = nullptr;
     QLabel* m_pausedBanner = nullptr;
+    QLabel* m_titleNote = nullptr;
     QLabel* m_countLabel = nullptr;
     QLabel* m_statusLabel = nullptr;
     QToolButton* m_settingsButton = nullptr;

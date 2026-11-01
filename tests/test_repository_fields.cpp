@@ -40,6 +40,7 @@ private slots:
     void filterCombinesWithText();
     void appFilterWildcardsAreLiteral();
     void copiedIntoAndClearProvenance();
+    void clearSourceTitlesKeepsTheRest();
     void secretKindRoundTrips();
     void refreshSetsSecretKindButNeverClearsIt();
     void appAndTitleFiltersAreTrimmed();
@@ -161,6 +162,25 @@ void TestRepositoryFields::copiedIntoAndClearProvenance()
     QVERIFY(item->source.isEmpty());
     QVERIFY(item->copiedInto.isEmpty());
     QCOMPARE(item->content, QStringLiteral("a"));
+}
+
+void TestRepositoryFields::clearSourceTitlesKeepsTheRest()
+{
+    test::Fixture fx;
+    const auto stored = fx.repository().upsert(makeItem(QStringLiteral("a"), kBase, QStringLiteral("Code"),
+        QStringLiteral("code"), QStringLiteral("secret plan"), QStringLiteral("/p")));
+    QVERIFY(fx.repository().setCopiedInto(stored->id, QStringLiteral("Terminal")));
+    QVERIFY(fx.repository().clearSourceTitles());
+    const auto item = fx.repository().findById(stored->id);
+    QVERIFY(item->source.title.isEmpty());
+    QCOMPARE(item->source.app, QStringLiteral("Code"));
+    QCOMPARE(item->source.windowClass, QStringLiteral("code"));
+    QCOMPARE(item->source.path, QStringLiteral("/p"));
+    QCOMPARE(item->copiedInto, QStringLiteral("Terminal"));
+    QCOMPARE(item->content, QStringLiteral("a"));
+    SearchFilter filter;
+    filter.title = QStringLiteral("secret");
+    QVERIFY(fx.repository().search(filter, 10).isEmpty());
 }
 
 void TestRepositoryFields::secretKindRoundTrips()

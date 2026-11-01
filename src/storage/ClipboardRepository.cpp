@@ -271,6 +271,14 @@ bool ClipboardRepository::clearProvenance()
     return true;
 }
 
+bool ClipboardRepository::clearSourceTitles()
+{
+    QSqlQuery query(m_db);
+    if (!query.exec(QStringLiteral("UPDATE clipboard_items SET source_title = NULL")))
+        return reportFailure(query, "clearSourceTitles");
+    return true;
+}
+
 bool ClipboardRepository::remove(qint64 id)
 {
     QSqlQuery query(m_db);

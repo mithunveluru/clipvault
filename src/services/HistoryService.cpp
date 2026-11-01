@@ -88,8 +88,13 @@ HistoryService::AddOutcome HistoryService::add(const QString& content, const Pro
 }
 
 HistoryService::AddOutcome HistoryService::addSecret(const QString& content, const QString& kind,
-                                                     const Provenance& source)
+                                                     Provenance source)
 {
+    // a url clip is its own path so keeping it would show the secret on the source line
+    const QString trimmed = content.trimmed();
+    if (!source.path.isEmpty() && (source.path.contains(trimmed) || content.contains(source.path)))
+        source.path.clear();
+
     // compared directly because hashing would leave a guessable fingerprint
     for (const ClipboardItem& stored : pinnedSecrets()) {
         if (stored.content == content) {
@@ -189,6 +194,33 @@ bool HistoryService::remove(qint64 id)
     // a deleted entry may be a pinned secret so its wal copy goes too
     m_repository.checkpoint();
     qCDebug(lcApp) << "history item deleted";
+    emit historyChanged();
+    return true;
+}
+
+bool HistoryService::setCopiedInto(qint64 id, const QString& app)
+{
+    if (!m_repository.setCopiedInto(id, app))
+        return false;
+    emit historyChanged();
+    return true;
+}
+
+bool HistoryService::clearProvenance()
+{
+    if (!m_repository.clearProvenance())
+        return false;
+    qCInfo(lcApp) << "provenance cleared";
+    emit historyChanged();
+    return true;
+}
+
+bool HistoryService::clearSourceTitles()
+{
+    m_ephemeral.clearSourceTitles();
+    if (!m_repository.clearSourceTitles())
+        return false;
+    qCInfo(lcApp) << "source titles cleared";
     emit historyChanged();
     return true;
 }

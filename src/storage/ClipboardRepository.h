@@ -36,6 +36,8 @@ public:
 
     // forgets every source field and copied into value
     bool clearProvenance();
+    // forgets every window title and keeps the rest of the source
+    bool clearSourceTitles();
 
     bool remove(qint64 id);
 

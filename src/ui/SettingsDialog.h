@@ -3,10 +3,12 @@
 #include <QDialog>
 
 class QCheckBox;
+class QLabel;
+class QLineEdit;
 class QComboBox;
 class QKeySequenceEdit;
-class QLineEdit;
 class QSpinBox;
+class QVBoxLayout;
 
 namespace clipvault {
 
@@ -19,12 +21,19 @@ public:
     SettingsDialog(SettingsService& settings, QString hotkeyNote, QString databasePath,
                    bool capturePaused, QWidget* parent = nullptr);
 
+    // how the desktop reports the focused window shown under source tracking
+    void setFocusMechanism(const QString& description);
+
 signals:
     void clearHistoryRequested();
     void pauseToggleRequested();
+    // sent only after the user confirmed
+    void clearProvenanceRequested();
 
 private:
     void buildUi(const QString& hotkeyNote, const QString& databasePath, bool capturePaused);
+    void addProvenanceSection(QVBoxLayout* layout, QWidget* parent);
+    void fitToContents();
 
     SettingsService& m_settings;
     QCheckBox* m_launchOnStartup = nullptr;
@@ -38,6 +47,10 @@ private:
     QCheckBox* m_secretPinnedNeverExpire = nullptr;
     QCheckBox* m_secretCopyBackWarning = nullptr;
     QLineEdit* m_secretRiskyApps = nullptr;
+    QCheckBox* m_provenanceEnabled = nullptr;
+    QCheckBox* m_provenanceTitles = nullptr;
+    QLineEdit* m_provenanceBlocklist = nullptr;
+    QLabel* m_focusMechanism = nullptr;
 };
 
 } // namespace clipvault

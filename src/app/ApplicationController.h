@@ -5,6 +5,7 @@
 #include "../platform/GlobalHotkey.h"
 #include "../services/HistoryService.h"
 #include "../services/SecretCopyWarner.h"
+#include "../services/ProvenanceService.h"
 #include "../services/SearchService.h"
 #include "../services/SettingsService.h"
 #include "../storage/ClipboardRepository.h"
@@ -62,9 +63,10 @@ private:
     std::unique_ptr<SettingsService> m_settings;
     std::unique_ptr<HistoryService> m_history;
     std::unique_ptr<SearchService> m_search;
+    std::unique_ptr<platform::FocusTracker> m_focus;
+    std::unique_ptr<ProvenanceService> m_provenance;
     std::unique_ptr<ClipboardMonitor> m_monitor;
     std::unique_ptr<platform::GlobalHotkey> m_hotkey;
-    std::unique_ptr<platform::FocusTracker> m_focus;
     std::unique_ptr<SecretCopyWarner> m_copyWarner;
     std::unique_ptr<MainWindow> m_window;
     std::unique_ptr<QSystemTrayIcon> m_tray;

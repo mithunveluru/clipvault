@@ -3,10 +3,12 @@
 #include "../core/Logging.h"
 #include "../services/EphemeralStore.h"
 #include "../services/HistoryService.h"
+#include "../services/ProvenanceService.h"
 #include "../services/SearchService.h"
 #include "../services/SettingsService.h"
 #include "ClipboardItemDelegate.h"
 #include "ClipboardListModel.h"
+#include "ProvenanceDialog.h"
 #include "SettingsDialog.h"
 
 #include <QApplication>
@@ -91,8 +93,20 @@ void MainWindow::buildUi()
     m_searchEdit->setAccessibleName(tr("Search clipboard history"));
     m_searchEdit->installEventFilter(this);
     connect(m_searchEdit, &QLineEdit::textChanged, this, &MainWindow::refresh);
+    connect(m_searchEdit, &QLineEdit::textChanged, this, &MainWindow::updateTitleNote);
     searchLayout->addWidget(m_searchEdit);
     root->addWidget(searchRow);
+
+    m_titleNote = new QLabel(tr("Window titles are not recorded and turning them off removed the stored ones, "
+                                "so title: matches nothing. Turn on \u201cAlso record window titles\u201d in "
+                                "Settings, Privacy to record titles for clips copied from then on."),
+                             this);
+    m_titleNote->setObjectName(QStringLiteral("footerLabel"));
+    m_titleNote->setWordWrap(true);
+    m_titleNote->setContentsMargins(14, 0, 14, 8);
+    m_titleNote->hide();
+    root->addWidget(m_titleNote);
+    connect(&m_settings, &SettingsService::changed, this, &MainWindow::updateTitleNote);
 
     m_pausedBanner = new QLabel(tr("Clipboard capture is paused. Your existing history is still available."), this);
     m_pausedBanner->setObjectName(QStringLiteral("pausedBanner"));
@@ -103,8 +117,11 @@ void MainWindow::buildUi()
     m_model = new ClipboardListModel(this);
     m_list = new QListView(this);
     m_list->setModel(m_model);
-    m_list->setItemDelegate(new ClipboardItemDelegate(m_list));
-    m_list->setUniformItemSizes(true);
+    auto* delegate = new ClipboardItemDelegate(m_list);
+    m_list->setItemDelegate(delegate);
+    // rows with a source are one line taller
+    m_list->setUniformItemSizes(false);
+    connect(delegate, &ClipboardItemDelegate::appChipClicked, this, &MainWindow::filterByApp);
     m_list->setFrameShape(QFrame::NoFrame);
     m_list->setSelectionMode(QAbstractItemView::SingleSelection);
     m_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -150,6 +167,13 @@ void MainWindow::buildUi()
 
     auto* revealShortcut = new QShortcut(QKeySequence(QStringLiteral("Ctrl+R")), this);
     connect(revealShortcut, &QShortcut::activated, this, &MainWindow::toggleRevealCurrent);
+    auto* detailsShortcut = new QShortcut(QKeySequence(QStringLiteral("Ctrl+I")), this);
+    connect(detailsShortcut, &QShortcut::activated, this, &MainWindow::showSourceDetails);
+
+    auto* appFilterShortcut = new QShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+F")), this);
+    connect(appFilterShortcut, &QShortcut::activated, this, [this] {
+        filterByApp(m_list->currentIndex().data(ClipboardListModel::SourceAppRole).toString());
+    });
 
     auto* findShortcut = new QShortcut(QKeySequence::Find, this);
     connect(findShortcut, &QShortcut::activated, this, [this] {
@@ -210,10 +234,10 @@ void MainWindow::refresh()
     }();
 
     // secrets in memory match on their kind label only so search never probes the text
-    const QString query = m_searchEdit->text().trimmed();
+    const SearchFilter filter = SearchService::parse(m_searchEdit->text(), QDateTime::currentDateTime());
     QList<ClipboardItem> items;
     for (ClipboardItem& secret : m_history.ephemeral().items()) {
-        if (query.isEmpty() || secretKindLabel(secret.secretKind).contains(query, Qt::CaseInsensitive))
+        if (secretMatches(secret, filter))
             items.append(std::move(secret));
     }
     items.append(m_search.search(m_searchEdit->text()));
@@ -320,6 +344,7 @@ void MainWindow::activateCurrent()
         return;
     if (!item->secretKind.isEmpty())
         emit secretChosen(item->id, item->secretKind);
+    emit itemCopiedOut(item->id);
     emit itemChosen(item->content);
 }
 
@@ -359,7 +384,37 @@ void MainWindow::openSettings()
     SettingsDialog dialog(m_settings, m_hotkeyNote, m_databasePath, m_paused, this);
     connect(&dialog, &SettingsDialog::clearHistoryRequested, this, &MainWindow::confirmClearHistory);
     connect(&dialog, &SettingsDialog::pauseToggleRequested, this, &MainWindow::pauseToggleRequested);
+    if (m_provenance) {
+        dialog.setFocusMechanism(m_provenance->mechanismDescription());
+        connect(&dialog, &SettingsDialog::clearProvenanceRequested, this, [this] {
+            if (!m_provenance->clearProvenance())
+                flashStatus(tr("Could not clear source information."));
+        });
+    }
     dialog.exec();
+}
+
+void MainWindow::showSourceDetails()
+{
+    const auto item = m_model->itemAt(m_list->currentIndex());
+    if (!item || !m_provenance)
+        return;
+    ProvenanceDialog dialog(*item, *m_provenance, m_model->isRevealed(item->id), this);
+    connect(&dialog, &ProvenanceDialog::statusMessage, this, &MainWindow::flashStatus);
+    dialog.exec();
+}
+
+void MainWindow::filterByApp(const QString& app)
+{
+    if (app.isEmpty())
+        return;
+    m_searchEdit->setText(SearchService::appQuery(app));
+    m_searchEdit->setFocus();
+}
+
+void MainWindow::updateTitleNote()
+{
+    m_titleNote->setVisible(!m_settings.provenanceTitles() && SearchService::mentionsTitle(m_searchEdit->text()));
 }
 
 void MainWindow::confirmClearHistory()

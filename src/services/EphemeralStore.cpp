@@ -117,6 +117,13 @@ void EphemeralStore::clear()
         m_wipe(entry.item.content);
 }
 
+void EphemeralStore::clearSourceTitles()
+{
+    for (Entry& entry : m_entries)
+        entry.item.source.title.clear();
+    emit changed();
+}
+
 qsizetype EphemeralStore::indexOf(qint64 id) const
 {
     for (qsizetype i = 0; i < m_entries.size(); ++i) {

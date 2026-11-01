@@ -58,6 +58,33 @@ QString secretMask()
     return QString(12, QChar(0x2022));
 }
 
+bool secretMatches(const ClipboardItem& secret, const SearchFilter& filter)
+{
+    // trimmed like the repository does for saved clips
+    const QString text = filter.text.trimmed();
+    if (!text.isEmpty() && !secretKindLabel(secret.secretKind).contains(text, Qt::CaseInsensitive))
+        return false;
+    const QString app = filter.app.trimmed();
+    if (!app.isEmpty() && !secret.source.app.contains(app, Qt::CaseInsensitive)
+        && !secret.source.windowClass.contains(app, Qt::CaseInsensitive))
+        return false;
+    const QString title = filter.title.trimmed();
+    if (!title.isEmpty() && !secret.source.title.contains(title, Qt::CaseInsensitive))
+        return false;
+    if (filter.since && secret.createdAt < *filter.since)
+        return false;
+    return !filter.until || secret.createdAt < *filter.until;
+}
+
+QString sourceLineOf(const Provenance& source)
+{
+    const QString app = source.app.isEmpty() ? source.windowClass : source.app;
+    const QString detail = source.path.isEmpty() ? source.title : source.path;
+    if (app.isEmpty() || detail.isEmpty())
+        return app.isEmpty() ? detail : app;
+    return QStringLiteral("%1  \u00b7  %2").arg(app, detail);
+}
+
 ClipboardListModel::ClipboardListModel(QObject* parent)
     : QAbstractListModel(parent)
 {
@@ -134,6 +161,12 @@ QVariant ClipboardListModel::data(const QModelIndex& index, int role) const
 
     const ClipboardItem& item = m_items.at(index.row());
     const bool masked = !item.secretKind.isEmpty() && !m_revealed.contains(item.id);
+    // path and title can carry the secret itself so only the app shows while masked
+    Provenance source = item.source;
+    if (masked) {
+        source.path.clear();
+        source.title.clear();
+    }
     switch (role) {
     case IdRole:        return item.id;
     case ContentRole:   return item.content;
@@ -145,6 +178,9 @@ QVariant ClipboardListModel::data(const QModelIndex& index, int role) const
     case TypeRole:      return static_cast<int>(item.type);
     case PinnedRole:    return item.pinned;
     case CreatedAtRole: return item.createdAt;
+    case SourceRole:    return sourceLineOf(source);
+    case SourceAppRole: return source.app.isEmpty() ? source.windowClass : source.app;
+    case SourceDetailRole: return source.path.isEmpty() ? source.title : source.path;
     case Qt::AccessibleTextRole:
         return QStringLiteral("%1, %2, %3")
             .arg(masked ? tr("hidden %1").arg(secretKindLabel(item.secretKind)) : toString(item.type),

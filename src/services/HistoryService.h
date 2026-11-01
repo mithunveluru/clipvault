@@ -41,6 +41,13 @@ public:
     bool setPinned(qint64 id, bool pinned);
     bool remove(qint64 id);
 
+    // app the entry was pasted into after a copy back
+    bool setCopiedInto(qint64 id, const QString& app);
+    // forgets every source and copied into value
+    bool clearProvenance();
+    // forgets every window title once title recording is turned off
+    bool clearSourceTitles();
+
     // Pinned entries are kept unless explicitly included
     bool clearAll(bool includePinned);
 
@@ -64,7 +71,7 @@ signals:
     void captureRejected(const QString& reason);
 
 private:
-    AddOutcome addSecret(const QString& content, const QString& kind, const Provenance& source);
+    AddOutcome addSecret(const QString& content, const QString& kind, Provenance source);
     [[nodiscard]] QList<ClipboardItem> pinnedSecrets() const;
     bool pinSecret(qint64 id);
     bool unpinSecret(const ClipboardItem& item);

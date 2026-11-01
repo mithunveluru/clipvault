@@ -22,7 +22,8 @@ public:
     QString appId = QStringLiteral("org.gnome.TextEditor");
     QString wmClass = QStringLiteral("gnome-text-editor");
     QString title = QStringLiteral("notes.txt");
-    qlonglong pid = 4242;
+    // a fixed pid can equal our own on a fresh machine and then reads as our window
+    qlonglong pid = QCoreApplication::applicationPid() + 1;
     qulonglong windowId = 77;
     QList<qulonglong> activated;
     QStringList subscribers;
@@ -148,7 +149,7 @@ void TestFocusTracker::readsInitialFocusAndChanges()
     QCOMPARE(tracker.current().app, QStringLiteral("org.gnome.TextEditor"));
     QCOMPARE(tracker.current().windowClass, QStringLiteral("gnome-text-editor"));
     QCOMPARE(tracker.current().title, QStringLiteral("notes.txt"));
-    QCOMPARE(tracker.current().pid, 4242);
+    QCOMPARE(tracker.current().pid, QCoreApplication::applicationPid() + 1);
     QCOMPARE(tracker.lastForeignWindow().windowId, 77ULL);
 
     m_shell.appId.clear();
@@ -167,7 +168,7 @@ void TestFocusTracker::ownWindowIsNotForeign()
 {
     QVERIFY(startShell());
     m_shell.windowId = 90;
-    m_shell.pid = 4242;
+    m_shell.pid = QCoreApplication::applicationPid() + 1;
     GnomeShellFocusTracker tracker;
     QTRY_COMPARE(tracker.lastForeignWindow().windowId, 90ULL);
 
@@ -176,7 +177,7 @@ void TestFocusTracker::ownWindowIsNotForeign()
     m_shell.announce();
     QTRY_COMPARE(tracker.current().windowId, 91ULL);
     QCOMPARE(tracker.lastForeignWindow().windowId, 90ULL);
-    m_shell.pid = 4242;
+    m_shell.pid = QCoreApplication::applicationPid() + 1;
     stopShell();
 }
 

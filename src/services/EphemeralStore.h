@@ -51,6 +51,7 @@ public:
 
     bool remove(qint64 id);
     void clear();
+    void clearSourceTitles();
 
     void setClipboardClearer(ClipboardClearer clearer) { m_clearClipboard = std::move(clearer); }
     // tests observe the wipe through this hook
