@@ -263,17 +263,33 @@ QString pathFromEditorTitle(const QString& title, EditorKind kind, const QString
     if (name.isEmpty() || name.startsWith(QStringLiteral("…")) || name.startsWith(QLatin1String("...")))
         return { };
 
-    QString candidate;
-    if (QDir::isAbsolutePath(name))
-        candidate = name;
-    else if (!directory.isEmpty())
-        candidate = directory + QLatin1Char('/') + name;
-    else if (!baseDir.isEmpty() && (projectName.isEmpty() || QFileInfo(baseDir).fileName() == projectName))
-        candidate = baseDir + QLatin1Char('/') + name;
-    if (candidate.isEmpty() || !QDir::isAbsolutePath(candidate))
+    if (name.startsWith(QLatin1String("file:"), Qt::CaseInsensitive))
         return { };
-    candidate = QDir::cleanPath(candidate);
-    return QFileInfo(candidate).isFile() ? candidate : QString();
+
+    // vim shows absolute paths so they stand on their own but a relative name stays inside its root
+    QString root;
+    if (!QDir::isAbsolutePath(name)) {
+        if (!directory.isEmpty())
+            root = std::move(directory);
+        else if (!baseDir.isEmpty()
+            && (projectName.isEmpty() || QFileInfo(baseDir).fileName() == projectName))
+            root = baseDir;
+        if (root.isEmpty() || !QDir::isAbsolutePath(root))
+            return { };
+    }
+    const QString candidate = QDir::cleanPath(root.isEmpty() ? name : root + QLatin1Char('/') + name);
+    if (isKernelPath(candidate))
+        return { };
+    const QFileInfo info(candidate);
+    QString canonical = info.canonicalFilePath();
+    if (canonical.isEmpty() || !info.isFile() || isKernelPath(canonical))
+        return { };
+    if (!root.isEmpty()) {
+        const QString canonicalRoot = QFileInfo(root).canonicalFilePath();
+        if (canonicalRoot.isEmpty() || !canonical.startsWith(canonicalRoot + QLatin1Char('/')))
+            return { };
+    }
+    return canonical;
 }
 
 QString processWorkingDirectory(qint64 pid)
