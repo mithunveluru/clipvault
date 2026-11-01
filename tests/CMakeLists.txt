@@ -14,6 +14,7 @@ endforeach()
 
 # suites added after 1.0 build with warnings as errors
 set(CLIPVAULT_STRICT_TESTS
+    test_migration
 )
 
 foreach(test IN LISTS CLIPVAULT_STRICT_TESTS)
