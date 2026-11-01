@@ -15,6 +15,12 @@ using clipvault::platform::X11FocusTracker;
 
 namespace {
 
+// a fixed pid can equal our own on a fresh machine and then reads as our window
+std::uint32_t foreignPid()
+{
+    return static_cast<std::uint32_t>(QCoreApplication::applicationPid() + 1);
+}
+
 struct FreeDeleter {
     void operator()(void* pointer) const { std::free(pointer); }
 };
@@ -129,15 +135,15 @@ void TestX11FocusTracker::followsActiveWindowAndTitle()
     QVERIFY(tracker);
     QSignalSpy spy(tracker.get(), &X11FocusTracker::focusChanged);
 
-    const xcb_window_t window
-        = m_wm->createWindow(QByteArrayLiteral("cvtest\0CvTest\0"), QByteArrayLiteral("first title"), 4242);
+    const xcb_window_t window = m_wm->createWindow(
+        QByteArrayLiteral("cvtest\0CvTest\0"), QByteArrayLiteral("first title"), foreignPid());
     m_wm->setActive(window);
     QTRY_COMPARE(tracker->current().windowId, quint64(window));
     const WindowInfo info = tracker->current();
     QCOMPARE(info.app, QStringLiteral("cvtest"));
     QCOMPARE(info.windowClass, QStringLiteral("CvTest"));
     QCOMPARE(info.title, QStringLiteral("first title"));
-    QCOMPARE(info.pid, 4242);
+    QCOMPARE(info.pid, qint64(foreignPid()));
     QCOMPARE(tracker->lastForeignWindow().windowId, quint64(window));
     QVERIFY(!spy.isEmpty());
 
@@ -153,7 +159,7 @@ void TestX11FocusTracker::ownWindowIsNotForeign()
 {
     const auto tracker = X11FocusTracker::create();
     QVERIFY(tracker);
-    const xcb_window_t other = m_wm->createWindow(QByteArrayLiteral("other\0Other\0"), "other", 4243);
+    const xcb_window_t other = m_wm->createWindow(QByteArrayLiteral("other\0Other\0"), "other", foreignPid());
     m_wm->setActive(other);
     QTRY_COMPARE(tracker->lastForeignWindow().windowId, quint64(other));
 
