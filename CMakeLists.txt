@@ -92,12 +92,9 @@ set(CLIPVAULT_STRICT_SOURCES
     src/core/SecureZero.cpp
     src/platform/FocusTrackerFactory.cpp
     src/platform/SourceLocation.cpp
-<<<<<<< HEAD
     src/services/EphemeralStore.cpp
     src/services/SecretCopyWarner.cpp
-=======
     src/platform/GnomeShellFocusTracker.cpp
->>>>>>> e1150f8 (add gnome shell focus tracker and prefer it in the factory)
 )
 
 # the x11 focus tracker is optional and the factory falls back without it
