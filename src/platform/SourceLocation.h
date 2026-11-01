@@ -22,12 +22,12 @@ enum class EditorKind { None, FileFirst, ProjectFirst };
 [[nodiscard]] EditorKind editorKind(const WindowInfo& window);
 // vim and neovim name the open file in the terminal title
 [[nodiscard]] bool isVimTitle(const QString& title);
-// an existing file named by the title or empty and baseDir only helps when it matches the project
+// an existing file named by the title or empty and the base dir only helps when it matches the project
 [[nodiscard]] QString pathFromEditorTitle(const QString& title, EditorKind kind, const QString& baseDir);
 [[nodiscard]] QString processWorkingDirectory(qint64 pid);
 // cwd of the newest descendant so a terminal yields its shell or the program running in it
 [[nodiscard]] QString foregroundWorkingDirectory(qint64 pid);
-// what openSourceLocation hands to the desktop or empty when it refuses
+// what open source location hands to the desktop or empty when it refuses
 [[nodiscard]] QString openableLocation(const QString& location);
 
 } // namespace clipvault::platform
