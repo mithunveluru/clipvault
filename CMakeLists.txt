@@ -40,6 +40,7 @@ add_library(clipvault_lib STATIC
     src/platform/GlobalHotkeyFactory.cpp
     src/platform/FocusTrackerFactory.cpp
     src/platform/SourceLocation.cpp
+    src/platform/GnomeShellFocusTracker.cpp
     src/ui/ClipboardListModel.cpp
     src/ui/ClipboardItemDelegate.cpp
     src/ui/SettingsDialog.cpp
@@ -72,6 +73,7 @@ add_library(clipvault_lib STATIC
     src/platform/GnomeGlobalHotkey.h
     src/platform/FocusTracker.h
     src/platform/SourceLocation.h
+    src/platform/GnomeShellFocusTracker.h
     src/ui/ClipboardListModel.h
     src/ui/ClipboardItemDelegate.h
     src/ui/SettingsDialog.h
@@ -92,7 +94,24 @@ set(CLIPVAULT_STRICT_SOURCES
     src/platform/SourceLocation.cpp
     src/services/EphemeralStore.cpp
     src/services/SecretCopyWarner.cpp
+    src/platform/GnomeShellFocusTracker.cpp
 )
+
+# the x11 focus tracker is optional and the factory falls back without it
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(XCB IMPORTED_TARGET xcb)
+endif()
+if(XCB_FOUND)
+    target_sources(clipvault_lib PRIVATE src/platform/X11FocusTracker.cpp src/platform/X11FocusTracker.h)
+    target_link_libraries(clipvault_lib PRIVATE PkgConfig::XCB)
+    target_compile_definitions(clipvault_lib PRIVATE CLIPVAULT_HAVE_XCB=1)
+    list(APPEND CLIPVAULT_STRICT_SOURCES src/platform/X11FocusTracker.cpp)
+elseif(DEFINED ENV{CI})
+    message(FATAL_ERROR "ci must build the x11 focus tracker but xcb was not found")
+else()
+    message(STATUS "xcb not found so the x11 focus tracker is not built")
+endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(clipvault_lib PRIVATE -Wall -Wextra -Wpedantic)

@@ -24,7 +24,14 @@ set(CLIPVAULT_STRICT_TESTS
     test_secret_gate
     test_secret_clipboard
     test_secret_adversarial
+    test_source_location
+    test_focus_tracker
+    test_source_location_adversarial
+    test_focus_tracker_adversarial
 )
+if(XCB_FOUND)
+    list(APPEND CLIPVAULT_STRICT_TESTS test_x11_focus_tracker test_x11_focus_tracker_adversarial)
+endif()
 
 foreach(test IN LISTS CLIPVAULT_STRICT_TESTS)
     add_executable(${test} ${test}.cpp)
@@ -33,6 +40,11 @@ foreach(test IN LISTS CLIPVAULT_STRICT_TESTS)
     target_compile_definitions(${test} PRIVATE CLIPVAULT_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
     add_test(NAME ${test} COMMAND ${test})
 endforeach()
+if(XCB_FOUND)
+    target_link_libraries(test_x11_focus_tracker PRIVATE PkgConfig::XCB)
+    target_link_libraries(test_x11_focus_tracker_adversarial PRIVATE PkgConfig::XCB)
+    set_tests_properties(test_x11_focus_tracker_adversarial PROPERTIES TIMEOUT 60)
+endif()
 
 # release gate that needs strace and xvfb and is skipped nowhere in ci
 find_program(STRACE strace)

@@ -34,7 +34,8 @@ public:
     [[nodiscard]] virtual WindowInfo current() const = 0;
     // most recent focused window that is not clipvault itself
     [[nodiscard]] virtual WindowInfo lastForeignWindow() const = 0;
-    // raises the window and returns false when the mechanism cannot
+    // asks for the window to be raised and returns true once the request is sent
+    // which does not prove the window came up and false when the mechanism cannot ask
     virtual bool activate(const WindowInfo& window) = 0;
     // one line for the settings dialog saying how and how well focus is seen
     [[nodiscard]] virtual QString mechanismDescription() const = 0;

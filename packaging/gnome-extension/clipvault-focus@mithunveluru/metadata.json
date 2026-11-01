@@ -1,0 +1,7 @@
+{
+  "uuid": "clipvault-focus@mithunveluru",
+  "name": "ClipVault Focus",
+  "description": "Tells ClipVault which window is focused over the local session bus so clips record their source app. Nothing leaves the machine.",
+  "shell-version": ["45", "46", "47"],
+  "version": 1
+}

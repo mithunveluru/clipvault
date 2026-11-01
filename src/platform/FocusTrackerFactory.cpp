@@ -1,6 +1,12 @@
 #include "FocusTracker.h"
 
 #include "../core/Logging.h"
+#include "GnomeShellFocusTracker.h"
+#ifdef CLIPVAULT_HAVE_XCB
+#include "X11FocusTracker.h"
+#endif
+
+#include <QGuiApplication>
 
 namespace clipvault::platform {
 namespace {
@@ -23,6 +29,20 @@ public:
 
 std::unique_ptr<FocusTracker> createFocusTracker(QObject* parent)
 {
+    if (GnomeShellFocusTracker::isAvailable()) {
+        qCInfo(lcFocus) << "focus from the gnome shell extension";
+        return std::make_unique<GnomeShellFocusTracker>(parent);
+    }
+#ifdef CLIPVAULT_HAVE_XCB
+    const bool xcb = qobject_cast<QGuiApplication*>(QCoreApplication::instance()) != nullptr
+        && QGuiApplication::platformName() == QLatin1String("xcb");
+    if (xcb) {
+        if (auto tracker = X11FocusTracker::create(parent)) {
+            qCInfo(lcFocus) << "focus from x11";
+            return tracker;
+        }
+    }
+#endif
     qCInfo(lcFocus) << "no focus tracking mechanism available";
     return std::make_unique<NullFocusTracker>(parent);
 }
