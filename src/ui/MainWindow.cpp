@@ -398,6 +398,12 @@ void MainWindow::setSemanticIndex(SemanticIndex* index)
         m_semanticIds = ids;
         refresh();
     });
+    // a stop drops any query in flight so the next refresh must ask again
+    connect(index, &SemanticIndex::statusChanged, this, [this] {
+        m_semanticQuery.clear();
+        m_semanticIds.clear();
+        refresh();
+    });
 }
 
 void MainWindow::openSettings()

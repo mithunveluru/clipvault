@@ -83,6 +83,41 @@ private slots:
 
         index.stop();
     }
+
+    void queryLostToStopIsAskedAgainOnceReady()
+    {
+        Fixture fixture;
+        EmbeddingRepository embeddings(fixture.database().handle());
+        SemanticIndex index(embeddings, fixture.repository());
+        const auto probe = std::make_shared<FakeEmbeddingProbe>();
+        const qint64 car
+            = addFrom(fixture, QStringLiteral("vehicle registration"), QStringLiteral("konsole"));
+        const auto factory = [probe](ProviderFailure*) -> std::unique_ptr<EmbeddingProvider> {
+            return std::make_unique<FakeEmbeddingProvider>(probe, 0,
+                QHash<QString, QString> { { QStringLiteral("automobile"), QStringLiteral("car") },
+                    { QStringLiteral("vehicle"), QStringLiteral("car") } });
+        };
+
+        QSignalSpy idle(&index, &SemanticIndex::backfillIdle);
+        index.start(factory);
+        QVERIFY(idle.wait(5000));
+
+        MainWindow window(fixture.history(), fixture.search(), fixture.settings());
+        window.setSemanticIndex(&index);
+        auto* edit = window.findChild<QLineEdit*>();
+        auto* list = window.findChild<QListView*>();
+        QVERIFY(edit && list);
+
+        // the reply never arrives because the index stops before the event loop runs
+        edit->setText(QStringLiteral("automobile"));
+        index.stop();
+        QVERIFY(!shownIds(*list).contains(car));
+
+        index.start(factory);
+        QTRY_VERIFY_WITH_TIMEOUT(shownIds(*list).contains(car), 5000);
+
+        index.stop();
+    }
 };
 
 QTEST_MAIN(TestSemanticWindow)
