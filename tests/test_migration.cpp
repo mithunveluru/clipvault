@@ -39,7 +39,8 @@ private:
     {
         const QString target = dir.filePath(QStringLiteral("history.db"));
         QFile::copy(QStringLiteral(CLIPVAULT_FIXTURES "/v1.db"), target);
-        QFile::setPermissions(target, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup);
+        QFile::setPermissions(
+            target, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadGroup);
         return target;
     }
 };
@@ -75,12 +76,14 @@ void TestMigration::upgradesV1PreservingHistory()
     // whitespace survives because content is stored exactly as copied
     QCOMPARE(rows.value(0).toString(), QStringLiteral("  leading and trailing spaces kept  \n"));
 
-    QCOMPARE(scalar(db, QStringLiteral("SELECT count(*) FROM sqlite_master WHERE name = 'clip_embeddings'")), 1);
+    QCOMPARE(
+        scalar(db, QStringLiteral("SELECT count(*) FROM sqlite_master WHERE name = 'clip_embeddings'")), 1);
     QCOMPARE(scalar(db, QStringLiteral("PRAGMA secure_delete")), 1);
     const QFileDevice::Permissions perms = QFile::permissions(path);
     QVERIFY(perms.testFlag(QFileDevice::ReadOwner) && perms.testFlag(QFileDevice::WriteOwner));
-    QVERIFY(!(perms & (QFileDevice::ReadGroup | QFileDevice::WriteGroup | QFileDevice::ExeGroup
-                       | QFileDevice::ReadOther | QFileDevice::WriteOther | QFileDevice::ExeOther)));
+    QVERIFY(!(perms
+        & (QFileDevice::ReadGroup | QFileDevice::WriteGroup | QFileDevice::ExeGroup | QFileDevice::ReadOther
+            | QFileDevice::WriteOther | QFileDevice::ExeOther)));
 }
 
 void TestMigration::reopenIsIdempotent()
@@ -118,8 +121,8 @@ void TestMigration::embeddingsCascadeOnDelete()
     QString error;
     QVERIFY2(database.open(&error), qPrintable(error));
     QSqlQuery query(database.handle());
-    QVERIFY(query.exec(QStringLiteral(
-        "INSERT INTO clip_embeddings (item_id, model, dim, content_hash, vector) VALUES (1, 'm', 1, 'h', x'00')")));
+    QVERIFY(query.exec(QStringLiteral("INSERT INTO clip_embeddings (item_id, model, dim, content_hash, "
+                                      "vector) VALUES (1, 'm', 1, 'h', x'00')")));
     QVERIFY(query.exec(QStringLiteral("DELETE FROM clipboard_items WHERE id = 1")));
     QCOMPARE(scalar(database.handle(), QStringLiteral("SELECT count(*) FROM clip_embeddings")), 0);
 }

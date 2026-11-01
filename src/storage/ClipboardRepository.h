@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../core/ClipboardItem.h"
+#include "../core/SearchFilter.h"
 
 #include <QList>
 #include <QSqlDatabase>
@@ -28,8 +29,14 @@ public:
 
     // Pinned first then newest first
     QList<ClipboardItem> search(const QString& query, int limit) const;
+    [[nodiscard]] QList<ClipboardItem> search(const SearchFilter& filter, int limit) const;
 
     bool setPinned(qint64 id, bool pinned);
+    bool setCopiedInto(qint64 id, const QString& app);
+
+    // forgets every source field and copied into value
+    bool clearProvenance();
+
     bool remove(qint64 id);
 
     // Pinned rows are only removed when includePinned
