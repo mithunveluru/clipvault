@@ -42,6 +42,15 @@ Written in C++20 with Qt 6. No server, no accounts, no network.
   default).
 - **Content classification.** Text, URL, Email and Code, decided locally by a
   handful of regexes — no model, no API.
+- **Secret radar.** Copied API keys, tokens, private keys and password-like
+  strings are kept in memory only, masked in the list, and forgotten after a
+  short timer (see [Secret radar](#secret-radar)).
+- **Clip sources.** On by default, each entry records which app it came
+  from, a file or folder path when one is known, and the app that got focus
+  after you copied it back out. Window titles are off by default (see
+  [Clip sources](#clip-sources)).
+- **Search filters.** `app:`, `title:` and `date:` narrow a search (see
+  [Search syntax](#search-syntax)).
 
 ## Privacy model
 
@@ -60,6 +69,11 @@ which may be a password, an API key or a private message. ClipVault therefore:
 - honours the `x-kde-passwordManagerHint: secret` and
   `org.nspasteboard.ConcealedType` clipboard hints that password managers set,
   and skips those copies entirely,
+- keeps detected secrets out of the database and the WAL unless you pin one,
+  logs only the detector rule and length for them, never the text or a hash,
+  and overwrites deleted rows in place (`secure_delete`),
+- never writes window titles or file paths to the log, and records titles at
+  all only when you turn that on,
 - offers pause, per-entry delete, clear-all and configurable retention.
 
 What ClipVault deliberately does **not** do is pretend to be a secure vault.
@@ -170,6 +184,87 @@ cmake --install build --prefix ~/.local
 "Start ClipVault when I log in" in Settings writes an XDG autostart entry to
 `~/.config/autostart/clipvault.desktop`.
 
+## Secret radar
+
+When a copy looks like a secret, ClipVault keeps it in memory only. Nothing
+about it reaches SQLite or the WAL, and the log records only which rule matched
+and the length, never the text or a hash. The entry shows as dots with a badge
+and a countdown, and `Ctrl+R` reveals it. When the timer runs out (45 seconds
+by default, 10 seconds to 5 minutes in Settings) ClipVault overwrites its own
+copy as far as it can, and clears the clipboard if it still holds that secret.
+Copies held by Qt or by other programs are out of its reach.
+
+- **What counts.** Known formats are recognised anywhere in a clip of up to
+  4 KiB: private key blocks, AWS, GitHub, GitLab, Slack, Stripe, Google and npm
+  keys, JWTs, database URLs with a password, bearer tokens and `sk-` keys.
+  Password-style assignments, typed-password shapes and high-entropy tokens
+  are judged only when the clip is a single token. Larger clips count only when
+  they start with a known secret, and clips over 64 KiB are not scanned.
+- **Pinning is consent.** Pinning a secret writes it to the database, still
+  masked. Unlike other pins, a pinned secret still expires with the retention
+  setting unless "pinned secrets never expire" is on. Unpinning moves it back
+  to memory with a fresh timer.
+- **Password managers.** Copies marked with the password-manager hints are
+  still skipped entirely, as before.
+- **Copy-back warning.** Putting a secret back on the clipboard arms a warning
+  that fires if focus moves to an app on the risky list (Slack, Discord,
+  Signal, Telegram, Teams, Zoom and Element by default). It stays armed until
+  the secret's timer runs out or ClipVault captures another copy. This is best
+  effort: it depends on the focus tracker, and it cannot see what the other app
+  does with the paste.
+- **Limits.** Detection is pattern based, so it misses secrets in unusual
+  formats and sometimes flags harmless random strings. Turning the radar on
+  does not touch entries stored before it was on. The timer does not run
+  while the computer is suspended. A secret is in memory and on the clipboard
+  while the timer runs, so anything that can read either can read it.
+
+## Clip sources
+
+Source recording is on by default. For each entry ClipVault records the app id
+and window class, a file or folder path when one can be worked out, and, for
+saved entries, the app that got focus next after you copied the entry back out
+(it cannot see an actual paste). Settings → Privacy says exactly what is
+recorded and has a "Clear source information" action. Apps on the blocklist
+are never recorded; by default that is KeePassXC, 1Password, Bitwarden, Secrets
+and Seahorse.
+
+- **Window titles are off by default.** Turning them on records the title of
+  the source window. Turning them off again deletes every stored title, though
+  old copies can stay in the WAL until SQLite next checkpoints it.
+- **Paths are never guessed.** A path comes only from a terminal's working
+  directory, from a file name in an editor's window title, or from the clip
+  itself when it is a single web address. Editor titles are read for the path
+  even while titles are off; only the path is kept, never the title. Opening a
+  source never builds a shell command: a folder or a plain text file opens
+  directly, any other file opens its folder, and web addresses are shown but
+  never opened.
+- **Raising the source window** works only for clips copied since ClipVault
+  last started, because window ids are kept in memory only.
+- **How focus is seen.** On X11 ClipVault reads it from the window manager.
+  Under Wayland, X11 sees only XWayland windows; on GNOME the optional
+  extension in `packaging/gnome-extension` reports every window. The
+  extension answers only a process whose executable is named `clipvault`.
+  That is a same-user check, not a sandbox boundary. Without either, entries
+  are stored without a source.
+- **Secrets.** A secret's source never keeps a path that contains the secret,
+  and its path and title stay hidden in the list and detail view while it is
+  masked. A `title:` search can still match a masked secret's window title.
+
+## Search syntax
+
+Plain words match the clip text only. Secrets are never matched by their
+text; secrets held in memory match their kind name, such as `github token`.
+Prefixes narrow the search and can be combined with words:
+
+| Prefix | Matches |
+|---|---|
+| `app:firefox` or `from:firefox` | Source app id or window class containing the text |
+| `title:invoice` | Source window title (finds nothing while titles are off) |
+| `date:today`, `date:yesterday`, `date:week` | Entries copied today, yesterday or in the last 7 days including today, in local time |
+
+Quote values with spaces: `app:"Text Editor"`. `Ctrl+Shift+F` filters by the
+selected entry's app.
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |
@@ -182,6 +277,9 @@ cmake --install build --prefix ~/.local
 | `Ctrl+F` | Focus the search field |
 | `Ctrl+P` | Pin / unpin the selected entry |
 | `Ctrl+D` | Delete the selected entry |
+| `Ctrl+R` | Reveal or hide a masked secret |
+| `Ctrl+I` | Show where the selected entry came from |
+| `Ctrl+Shift+F` | Show only entries from the selected entry's app |
 | `Delete` | Delete the selected entry (when the list has focus) |
 
 `Delete` is bound only while the list has focus — in the search field it still
@@ -256,16 +354,21 @@ ctest --test-dir build --output-on-failure
 CI runs the same command under `xvfb-run`. The `no_network` gate needs `strace`,
 `xvfb-run` and `dbus-run-session`, and is registered only when all three exist.
 
-70 cases across five suites. Every suite builds its own database in a temporary
-directory — the tests never read or modify your real history.
+25 QtTest suites with 189 test functions, plus the `no_network` gate. QtTest
+reports 265 passes because it also counts data rows and each suite's setup and
+teardown. The two X11 suites are built only when xcb is found. Every suite builds its own
+database in a temporary directory — the tests never read or modify your real
+history.
 
-| Suite | Covers |
+| Suites | Cover |
 |---|---|
-| `test_classifier` | URL, email, SQL, code and prose classification, including near misses |
-| `test_repository` | CRUD, the unique-hash constraint, expiry, the history limit, persistence across reopen, LIKE wildcard escaping, file permissions |
-| `test_history_service` | Deduplication, recency refresh, pin preservation, retention, limits, the size guard |
-| `test_search_service` | Ordering, pinned ranking, case-insensitivity, partial matches, result caps |
-| `test_clipboard_monitor` | Capture, pause/resume, and that ClipVault never re-records its own copy-back |
+| `test_classifier`, `test_repository`, `test_history_service`, `test_search_service`, `test_clipboard_monitor` | Classification, storage, deduplication, retention, search ordering, capture and copy-back |
+| `test_migration`, `test_repository_fields`, `test_settings` | The v1 → v3 upgrade on a real v1 file, new columns, settings and file permissions |
+| `test_secret_*`, `test_ephemeral_store` | Detection against positive and false-positive corpora, the in-memory store and timer, pinning, the copy-back warning, and that no secret byte reaches the database, WAL or log |
+| `test_source_location*`, `test_focus_tracker*`, `test_x11_focus_tracker*` | Path rules, safe opening, the GNOME extension protocol against a fake bus service, and the X11 tracker under xvfb |
+| `test_search_parse`, `test_provenance_*`, `test_source_line` | Search prefixes, source recording policy, the source line and detail view |
+
+The `*_adversarial` suites hold the release-gate cases from security review.
 
 `test_clipboard_monitor` needs a display and runs on the `xcb` plugin, the same
 one the application uses; it skips cleanly where the clipboard is unavailable.
@@ -333,6 +436,11 @@ runaway copy cannot wedge the list or the search scan.
   Case-insensitive matching of non-ASCII text needs `ICU` or a normalised
   column.
 - **The database is not encrypted.** See [Privacy model](#privacy-model).
+- **Secret detection is pattern based.** It misses unusual formats and can
+  flag random-looking harmless strings. See [Secret radar](#secret-radar).
+- **Clip sources are best effort.** Native Wayland windows have no source
+  unless the GNOME extension is installed, and terminal tabs or editor titles
+  can point at the wrong place.
 - **`Ctrl+Shift+V` collides with "paste as plain text"** in many applications.
   The desktop shortcut wins while ClipVault is running; change it in Settings if
   that is not what you want.

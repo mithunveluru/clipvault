@@ -21,6 +21,9 @@
 - Raw clipboard text, titles and paths may be held in memory but never passed to qC* logging; use redact()
 - Ownership by std::unique_ptr or Qt parent; no raw owning pointers in new code
 - Mark query style functions [[nodiscard]] and const where it applies in new code
+- A detected secret stays in EphemeralStore with a negative id and reaches storage only when pinned; secret rows are never matched by content in search, and logs carry only the rule kind and length of a secret
+- Window titles are recorded only while provenance_titles is on; turning it off clears stored titles
+- Opening or raising a source goes only through platform::openSourceLocation and FocusTracker::activate; never a shell or QProcess
 
 ## Work Guidance
 
