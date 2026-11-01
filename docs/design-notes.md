@@ -71,12 +71,20 @@ must paste back precisely what was copied, so `" foo"` and `"foo"` are
 genuinely different entries. Only entries that are entirely whitespace are
 rejected.
 
-## Why there are no worker threads
+## Why there is only one worker thread
 
 `QClipboard` has thread affinity, and the work per capture is a string read, a
 hash and one indexed insert — measured at 0.14 ms. Worker threads would buy
 nothing and cost correctness. Database and clipboard access stay on the GUI
-thread; the only exception is `gsettings`, above.
+thread; `gsettings`, above, also runs off it.
+
+Optional semantic search adds the one worker thread. Hashing the 90 MB model
+and running one embedding take long enough to freeze the window and capture
+on the GUI thread. The worker only turns text into vectors and never touches
+`QClipboard` or the database; results come back by queued signal and the GUI
+thread does every write. The thread exists only while semantic search is on
+and its model verifies. The full justification is in
+[semantic-search.md](semantic-search.md#threading).
 
 ## Storage decisions
 

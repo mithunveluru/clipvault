@@ -51,6 +51,9 @@ Written in C++20 with Qt 6. No server, no accounts, no network.
   [Clip sources](#clip-sources)).
 - **Search filters.** `app:`, `title:` and `date:` narrow a search (see
   [Search syntax](#search-syntax)).
+- **Optional semantic search.** A separate build option adds search by
+  meaning with a local model you download yourself. It is off by default and
+  never downloads anything (see [docs/semantic-search.md](docs/semantic-search.md)).
 
 ## Privacy model
 
@@ -157,6 +160,10 @@ cmake --build build
 ```
 
 A `Debug` build is the same command with `-DCMAKE_BUILD_TYPE=Debug`.
+
+Semantic search needs ONNX Runtime and is built only with
+`-DCLIPVAULT_SEMANTIC=ON -DONNXRUNTIME_ROOT=<extracted release>`. Model setup
+is in [docs/semantic-search.md](docs/semantic-search.md).
 
 ## Run
 
@@ -354,11 +361,12 @@ ctest --test-dir build --output-on-failure
 CI runs the same command under `xvfb-run`. The `no_network` gate needs `strace`,
 `xvfb-run` and `dbus-run-session`, and is registered only when all three exist.
 
-25 QtTest suites with 189 test functions, plus the `no_network` gate. QtTest
-reports 265 passes because it also counts data rows and each suite's setup and
-teardown. The two X11 suites are built only when xcb is found. Every suite builds its own
-database in a temporary directory — the tests never read or modify your real
-history.
+31 QtTest suites with 226 test functions, plus the `no_network` gate. QtTest
+reports 322 passes because it also counts data rows and each suite's setup and
+teardown. A semantic build adds `test_onnx_embedding`, which runs against the
+real model only when `CLIPVAULT_TEST_MODEL_DIR` points at it. The two X11
+suites are built only when xcb is found. Every suite builds its own database in
+a temporary directory — the tests never read or modify your real history.
 
 | Suites | Cover |
 |---|---|
@@ -367,6 +375,7 @@ history.
 | `test_secret_*`, `test_ephemeral_store` | Detection against positive and false-positive corpora, the in-memory store and timer, pinning, the copy-back warning, and that no secret byte reaches the database, WAL or log |
 | `test_source_location*`, `test_focus_tracker*`, `test_x11_focus_tracker*` | Path rules, safe opening, the GNOME extension protocol against a fake bus service, and the X11 tracker under xvfb |
 | `test_search_parse`, `test_provenance_*`, `test_source_line` | Search prefixes, source recording policy, the source line and detail view |
+| `test_wordpiece_tokenizer`, `test_embedding_*`, `test_semantic_*`, `test_search_blend`, `test_onnx_embedding` | Tokenizer against the reference, the worker thread and its shutdown, vector storage, blending, prefixes and secrets, and the real model |
 
 The `*_adversarial` suites hold the release-gate cases from security review.
 
@@ -420,7 +429,9 @@ clipboard manager must paste back precisely what was copied, so `" foo"` and
 
 **Single-threaded by intent.** `QClipboard` has thread affinity, and the work per
 capture is a string read, a hash and one indexed insert — 0.14 ms. Adding worker
-threads would buy nothing and cost correctness.
+threads would buy nothing and cost correctness. Optional semantic search adds
+one embedding thread, which exists only while that feature is on and never
+touches the clipboard or the database.
 
 **Entries above 2 MB are refused**, with a message in the status bar, so a
 runaway copy cannot wedge the list or the search scan.
@@ -441,6 +452,10 @@ runaway copy cannot wedge the list or the search scan.
 - **Clip sources are best effort.** Native Wayland windows have no source
   unless the GNOME extension is installed, and terminal tabs or editor titles
   can point at the wrong place.
+- **Semantic search model hash is unconfirmed.** The pinned hash of the
+  official model file has not been checked against a download. Every test used
+  a local export of the same model. If the hash is wrong, the feature refuses
+  to turn on. See [docs/semantic-search.md](docs/semantic-search.md).
 - **`Ctrl+Shift+V` collides with "paste as plain text"** in many applications.
   The desktop shortcut wins while ClipVault is running; change it in Settings if
   that is not what you want.
