@@ -23,6 +23,8 @@ add_library(clipvault_lib STATIC
     src/core/ClipboardType.cpp
     src/core/Classifier.cpp
     src/core/Logging.cpp
+    src/core/SecretDetector.cpp
+    src/core/SecureZero.cpp
     src/storage/Database.cpp
     src/storage/ClipboardRepository.cpp
     src/storage/SettingsRepository.cpp
@@ -34,6 +36,8 @@ add_library(clipvault_lib STATIC
     src/platform/SingleInstance.cpp
     src/platform/GnomeGlobalHotkey.cpp
     src/platform/GlobalHotkeyFactory.cpp
+    src/platform/FocusTrackerFactory.cpp
+    src/platform/SourceLocation.cpp
     src/ui/ClipboardListModel.cpp
     src/ui/ClipboardItemDelegate.cpp
     src/ui/SettingsDialog.cpp
@@ -47,6 +51,10 @@ add_library(clipvault_lib STATIC
     src/core/ClipboardType.h
     src/core/Classifier.h
     src/core/Logging.h
+    src/core/Provenance.h
+    src/core/SearchFilter.h
+    src/core/SecretDetector.h
+    src/core/SecureZero.h
     src/storage/Database.h
     src/storage/ClipboardRepository.h
     src/storage/SettingsRepository.h
@@ -58,6 +66,8 @@ add_library(clipvault_lib STATIC
     src/platform/SingleInstance.h
     src/platform/GlobalHotkey.h
     src/platform/GnomeGlobalHotkey.h
+    src/platform/FocusTracker.h
+    src/platform/SourceLocation.h
     src/ui/ClipboardListModel.h
     src/ui/ClipboardItemDelegate.h
     src/ui/SettingsDialog.h
@@ -72,6 +82,10 @@ target_link_libraries(clipvault_lib PUBLIC
 
 # sources added after 1.0 also build with -Werror
 set(CLIPVAULT_STRICT_SOURCES
+    src/core/SecretDetector.cpp
+    src/core/SecureZero.cpp
+    src/platform/FocusTrackerFactory.cpp
+    src/platform/SourceLocation.cpp
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
