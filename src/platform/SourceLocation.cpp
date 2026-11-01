@@ -6,6 +6,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QMimeDatabase>
 #include <QRegularExpression>
 #include <QUrl>
 
@@ -117,6 +118,32 @@ qint64 newestChild(qint64 pid)
         }
     }
     return newest;
+}
+
+bool isKernelPath(const QString& path)
+{
+    for (const QLatin1String root :
+        { QLatin1String("/proc"), QLatin1String("/sys"), QLatin1String("/dev") }) {
+        if (path == root || path.startsWith(root + QLatin1Char('/')))
+            return true;
+    }
+    return false;
+}
+
+// only plain text goes straight to its handler and anything else shows its folder
+bool opensAsText(const QFileInfo& file)
+{
+    static const QStringList blocked { QStringLiteral("desktop"), QStringLiteral("jar"),
+        QStringLiteral("flatpakref"), QStringLiteral("flatpakrepo"), QStringLiteral("exe"),
+        QStringLiteral("msi") };
+    if (file.isExecutable() || blocked.contains(file.suffix(), Qt::CaseInsensitive))
+        return false;
+    const QMimeType type = QMimeDatabase().mimeTypeForFile(file, QMimeDatabase::MatchDefault);
+    // launchers and scripts count as text yet their handler may run them
+    if (type.inherits(QStringLiteral("application/x-desktop"))
+        || type.inherits(QStringLiteral("application/x-shellscript")))
+        return false;
+    return type.inherits(QStringLiteral("text/plain"));
 }
 
 } // namespace
@@ -262,18 +289,18 @@ QString openableLocation(const QString& location)
 {
     if (location.isEmpty() || !QDir::isAbsolutePath(location))
         return { };
-    QString canonical = QFileInfo(location).canonicalFilePath();
-    if (canonical.isEmpty())
+    const QFileInfo given(location);
+    if (given.isSymLink() && isKernelPath(QDir::cleanPath(given.symLinkTarget())))
+        return { };
+    QString canonical = given.canonicalFilePath();
+    if (canonical.isEmpty() || isKernelPath(canonical))
         return { };
     const QFileInfo target(canonical);
     if (target.isDir())
         return canonical;
     if (!target.isFile())
         return { };
-    // the default handler for these may run them so show the folder instead
-    if (target.isExecutable() || target.suffix() == QLatin1String("desktop"))
-        return target.absolutePath();
-    return canonical;
+    return opensAsText(target) ? canonical : target.absolutePath();
 }
 
 bool openSourceLocation(const QString& location)

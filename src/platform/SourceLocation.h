@@ -10,7 +10,8 @@ namespace clipvault::platform {
 // editor title and never a guessed url
 [[nodiscard]] QString resolveSourcePath(const WindowInfo& window);
 
-// opens an existing local directory or file without a shell
+// opens an existing local directory or plain text file without a shell
+// and shows the folder of any other file
 bool openSourceLocation(const QString& location);
 
 // pieces of the two calls above kept separate so tests can reach them
