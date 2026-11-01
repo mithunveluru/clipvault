@@ -51,6 +51,7 @@ public:
     QString openError() const { return m_openError; }
     QString databasePath() const { return m_dir.filePath(QStringLiteral("clipvault-test.db")); }
 
+    Database& database() { return *m_database; }
     ClipboardRepository& repository() { return *m_repository; }
     SettingsService& settings() { return *m_settings; }
     HistoryService& history() { return *m_history; }

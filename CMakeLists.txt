@@ -29,6 +29,7 @@ add_library(clipvault_lib STATIC
     src/storage/Database.cpp
     src/storage/ClipboardRepository.cpp
     src/storage/SettingsRepository.cpp
+    src/storage/EmbeddingRepository.cpp
     src/services/SettingsService.cpp
     src/services/HistoryService.cpp
     src/services/SearchService.cpp
@@ -66,6 +67,7 @@ add_library(clipvault_lib STATIC
     src/storage/Database.h
     src/storage/ClipboardRepository.h
     src/storage/SettingsRepository.h
+    src/storage/EmbeddingRepository.h
     src/services/SettingsService.h
     src/services/HistoryService.h
     src/services/SearchService.h
@@ -107,6 +109,7 @@ set(CLIPVAULT_STRICT_SOURCES
     src/ui/ProvenanceDialog.cpp
     src/core/WordPieceTokenizer.cpp
     src/services/OnnxEmbeddingProvider.cpp
+    src/storage/EmbeddingRepository.cpp
 )
 
 # the x11 focus tracker is optional and the factory falls back without it
