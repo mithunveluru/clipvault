@@ -10,9 +10,17 @@ namespace {
 const QRegularExpression& tokenPattern()
 {
     static const QRegularExpression pattern(
-        QStringLiteral(R"re((?:^|(?<=\s))(app|from|title|date):(?:"([^"]*)"?|(\S*)))re"),
+        QStringLiteral(R"re((?:^|(?<=\s))(app|from|title|date):(?:"((?:[^"\\]|\\.?)*)"?|(\S*)))re"),
         QRegularExpression::CaseInsensitiveOption);
     return pattern;
+}
+
+// inside quotes a backslash keeps the next quote or backslash literal
+QString unescapeQuoted(const QString& value)
+{
+    static const QRegularExpression escaped(QStringLiteral(R"re(\\(["\\]))re"));
+    QString result = value;
+    return result.replace(escaped, QStringLiteral("\\1"));
 }
 
 bool applyDate(const QString& value, const QDateTime& now, SearchFilter& filter)
@@ -56,13 +64,14 @@ SearchFilter SearchService::parse(const QString& query, const QDateTime& now)
     while (matches.hasNext()) {
         const QRegularExpressionMatch match = matches.next();
         const QString key = match.captured(1).toLower();
-        const QString value = match.hasCaptured(2) ? match.captured(2) : match.captured(3);
+        const QString value = match.hasCaptured(2) ? unescapeQuoted(match.captured(2)) : match.captured(3);
 
         // an empty value is a prefix still being typed and filters nothing
+        // values stay untrimmed so an app name round trips and the repository trims later
         if (key == QLatin1String("app") || key == QLatin1String("from")) {
-            filter.app = value.trimmed();
+            filter.app = value;
         } else if (key == QLatin1String("title")) {
-            filter.title = value.trimmed();
+            filter.title = value;
         } else if (!value.isEmpty() && !applyDate(value, now, filter)) {
             continue;
         }
@@ -88,9 +97,11 @@ bool SearchService::mentionsTitle(const QString& query)
 
 QString SearchService::appQuery(const QString& app)
 {
-    if (app.contains(QRegularExpression(QStringLiteral(R"(\s)"))))
-        return QStringLiteral("app:\"%1\"").arg(app);
-    return QStringLiteral("app:") + app;
+    if (!app.contains(QRegularExpression(QStringLiteral(R"re([\s"])re"))))
+        return QStringLiteral("app:") + app;
+    QString escaped = app;
+    escaped.replace(QLatin1Char('\\'), QStringLiteral("\\\\")).replace(QLatin1Char('"'), QStringLiteral("\\\""));
+    return QStringLiteral("app:\"%1\"").arg(escaped);
 }
 
 } // namespace clipvault

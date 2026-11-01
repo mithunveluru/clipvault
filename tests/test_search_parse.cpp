@@ -22,6 +22,7 @@ private slots:
     void mixedQuery();
     void mentionsTitle();
     void appQueryRoundTrips();
+    void appQueryRoundTripsAwkwardNames();
     void searchFiltersByAppAndDate();
 };
 
@@ -176,6 +177,18 @@ void TestSearchParse::searchFiltersByAppAndDate()
         QStringLiteral("shell clip"));
     QCOMPARE(fx.search().search(QStringLiteral("date:week")).size(), 2);
     QCOMPARE(fx.search().search(QStringLiteral("clip")).size(), 3);
+}
+
+void TestSearchParse::appQueryRoundTripsAwkwardNames()
+{
+    const QStringList apps { QStringLiteral("My \"Odd\" App"), QStringLiteral("\"lead"), QStringLiteral("trail\\"),
+        QStringLiteral("back\\slash \"q\""), QStringLiteral("a\\\"b"), QStringLiteral(" spaced "),
+        QStringLiteral("tab\there"), QStringLiteral("app:inner"), QStringLiteral("\""), QStringLiteral("\\") };
+    for (const QString& app : apps) {
+        const SearchFilter filter = parse(SearchService::appQuery(app) + QStringLiteral(" needle"));
+        QCOMPARE(filter.app, app);
+        QCOMPARE(filter.text, QStringLiteral("needle"));
+    }
 }
 
 QTEST_GUILESS_MAIN(TestSearchParse)
