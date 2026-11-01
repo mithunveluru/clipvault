@@ -44,6 +44,8 @@ bool ApplicationController::initialize(const QString& databasePath, QString* err
     m_search = std::make_unique<SearchService>(*m_repository);
     m_monitor = std::make_unique<ClipboardMonitor>();
     m_hotkey = platform::createGlobalHotkey(m_instance);
+    m_focus = platform::createFocusTracker();
+    m_copyWarner = std::make_unique<SecretCopyWarner>(*m_focus, *m_settings);
     m_window = std::make_unique<MainWindow>(*m_history, *m_search, *m_settings);
 
     m_window->setDatabasePath(m_database->path());
@@ -51,6 +53,22 @@ bool ApplicationController::initialize(const QString& databasePath, QString* err
 
     connect(m_monitor.get(), &ClipboardMonitor::textCaptured, this,
             [this](const QString& text) { m_history->add(text); });
+
+    // expiry clears the clipboard only while it still holds that secret
+    m_history->ephemeral().setClipboardClearer(
+        [this](const QString& text) { m_monitor->clearIfHolds(text); });
+    connect(m_monitor.get(), &ClipboardMonitor::textCaptured, m_copyWarner.get(),
+            &SecretCopyWarner::disarm);
+    connect(m_window.get(), &MainWindow::secretChosen, this, [this](qint64 id, const QString& kind) {
+        const int window = id < 0 ? m_history->ephemeral().remainingSeconds(id)
+                                  : m_settings->secretTtlSeconds();
+        m_copyWarner->secretWrittenBack(kind, std::chrono::seconds(window));
+    });
+    connect(m_copyWarner.get(), &SecretCopyWarner::warning, this, [this](const QString& message) {
+        m_window->flashStatus(message);
+        if (m_tray && m_tray->isVisible())
+            m_tray->showMessage(tr("Secret on the clipboard"), message, QSystemTrayIcon::Warning, 8000);
+    });
 
     // Monitor marks the write as ours
     connect(m_window.get(), &MainWindow::itemChosen, this, [this](const QString& content) {
@@ -220,6 +238,8 @@ void ApplicationController::shutdown()
     m_trayMenu.reset();
     m_window.reset();
     m_hotkey.reset();
+    m_copyWarner.reset();
+    m_focus.reset();
     m_monitor.reset();
     m_search.reset();
     m_history.reset();
