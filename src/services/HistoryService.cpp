@@ -2,6 +2,8 @@
 
 #include "../core/Classifier.h"
 #include "../core/Logging.h"
+#include "../core/SecretDetector.h"
+#include "../core/SecureZero.h"
 #include "SettingsService.h"
 
 #include <QCryptographicHash>
@@ -27,6 +29,7 @@ HistoryService::HistoryService(ClipboardRepository& repository, const SettingsSe
     , m_repository(repository)
     , m_settings(settings)
 {
+    connect(&m_ephemeral, &EphemeralStore::changed, this, &HistoryService::historyChanged);
 }
 
 QString HistoryService::hashOf(const QString& content)
@@ -46,6 +49,13 @@ HistoryService::AddOutcome HistoryService::add(const QString& content, const Pro
         emit captureRejected(tr("Clipboard entry was too large to store (%1 MB limit).")
                                  .arg(kMaxContentChars / (1024 * 1024)));
         return { AddStatus::RejectedTooLarge, -1 };
+    }
+
+    // a secret never reaches the repository so neither its text nor its hash lands on disk
+    if (m_settings.secretRadarEnabled()) {
+        const SecretVerdict verdict = detectSecret(content);
+        if (verdict.isSecret())
+            return addSecret(content, verdict.kind, source);
     }
 
     ClipboardItem item;
@@ -77,8 +87,91 @@ HistoryService::AddOutcome HistoryService::add(const QString& content, const Pro
     return { stored->inserted ? AddStatus::Inserted : AddStatus::Refreshed, stored->id };
 }
 
+HistoryService::AddOutcome HistoryService::addSecret(const QString& content, const QString& kind,
+                                                     const Provenance& source)
+{
+    // compared directly because hashing would leave a guessable fingerprint
+    for (const ClipboardItem& stored : pinnedSecrets()) {
+        if (stored.content == content) {
+            qCInfo(lcSecret) << "copied secret is already pinned, kind" << kind << "length" << content.size();
+            return { AddStatus::Refreshed, stored.id };
+        }
+    }
+
+    const auto added = m_ephemeral.add(content, kind, classify(content), source,
+                                       std::chrono::seconds(m_settings.secretTtlSeconds()));
+    qCInfo(lcSecret) << "secret kept in memory only, kind" << kind << "length" << content.size();
+    return { added.inserted ? AddStatus::Inserted : AddStatus::Refreshed, added.id };
+}
+
+QList<ClipboardItem> HistoryService::pinnedSecrets() const
+{
+    const int pinned = m_repository.pinnedCount();
+    if (pinned == 0)
+        return { };
+    // pinned rows sort first so this limit returns exactly them
+    QList<ClipboardItem> secrets;
+    for (ClipboardItem& item : m_repository.search(SearchFilter { }, pinned)) {
+        if (item.pinned && !item.secretKind.isEmpty())
+            secrets.append(std::move(item));
+    }
+    return secrets;
+}
+
+bool HistoryService::pinSecret(qint64 id)
+{
+    std::optional<ClipboardItem> item = m_ephemeral.find(id);
+    if (!item)
+        return false;
+
+    // pinning is consent so from here the secret is stored like any pinned entry
+    item->pinned = true;
+    item->contentHash = hashOf(item->content);
+    item->createdAt = QDateTime::currentDateTimeUtc();
+    const int retention = m_settings.retentionSeconds();
+    item->expiresAt = retention > 0 ? std::optional(item->createdAt.addSecs(retention)) : std::nullopt;
+
+    QString error;
+    const auto stored = m_repository.upsert(*item, &error);
+    if (stored && !stored->inserted)
+        m_repository.setPinned(stored->id, true);
+    if (!stored) {
+        secureZero(item->content);
+        qCCritical(lcSecret) << "could not pin secret:" << error;
+        emit captureRejected(tr("Could not save the clipboard entry."));
+        return false;
+    }
+
+    qCInfo(lcSecret) << "secret pinned to disk, kind" << item->secretKind << "length" << item->content.size();
+    m_ephemeral.remove(id);
+    secureZero(item->content);
+    return true;
+}
+
+bool HistoryService::unpinSecret(const ClipboardItem& item)
+{
+    if (!m_repository.remove(item.id))
+        return false;
+    qCInfo(lcSecret) << "secret unpinned and moved back to memory, kind" << item.secretKind << "length"
+                     << item.content.size();
+    m_ephemeral.add(item.content, item.secretKind, item.type, item.source,
+                    std::chrono::seconds(m_settings.secretTtlSeconds()));
+    return true;
+}
+
 bool HistoryService::setPinned(qint64 id, bool pinned)
 {
+    if (id < 0)
+        return pinned && pinSecret(id);
+    if (!pinned) {
+        std::optional<ClipboardItem> item = m_repository.findById(id);
+        if (item && !item->secretKind.isEmpty()) {
+            const bool moved = unpinSecret(*item);
+            secureZero(item->content);
+            return moved;
+        }
+    }
+
     if (!m_repository.setPinned(id, pinned))
         return false;
     qCDebug(lcApp) << (pinned ? "item pinned" : "item unpinned");
@@ -88,6 +181,8 @@ bool HistoryService::setPinned(qint64 id, bool pinned)
 
 bool HistoryService::remove(qint64 id)
 {
+    if (id < 0)
+        return m_ephemeral.remove(id);
     if (!m_repository.remove(id))
         return false;
     qCDebug(lcApp) << "history item deleted";
@@ -97,6 +192,7 @@ bool HistoryService::remove(qint64 id)
 
 bool HistoryService::clearAll(bool includePinned)
 {
+    m_ephemeral.clear();
     if (!m_repository.clearAll(includePinned))
         return false;
     qCInfo(lcApp) << "history cleared" << (includePinned ? "(including pinned)" : "(pinned kept)");
@@ -106,7 +202,15 @@ bool HistoryService::clearAll(bool includePinned)
 
 int HistoryService::runMaintenance()
 {
-    const int expired = m_repository.deleteExpired(QDateTime::currentDateTimeUtc());
+    const QDateTime now = QDateTime::currentDateTimeUtc();
+    int expired = m_repository.deleteExpired(now);
+    // pinned secrets still follow retention unless the user asked them to stay
+    if (!m_settings.secretPinnedNeverExpire()) {
+        for (const ClipboardItem& item : pinnedSecrets()) {
+            if (item.expiresAt && *item.expiresAt <= now && m_repository.remove(item.id))
+                ++expired;
+        }
+    }
     const int trimmed = m_repository.enforceLimit(m_settings.maxItems());
     const int removed = expired + trimmed;
     if (removed > 0) {
@@ -125,7 +229,7 @@ void HistoryService::applyRetentionChange()
 
 int HistoryService::count() const
 {
-    return m_repository.count();
+    return m_repository.count() + m_ephemeral.count();
 }
 
 } // namespace clipvault
