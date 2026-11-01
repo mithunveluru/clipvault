@@ -13,6 +13,13 @@ headers=$(printf '%s\n' "${files[@]}" | grep '^src/.*\.h$' | sed 's/[.]/[.]/g' |
 filter=${headers:-^$}
 for f in "${files[@]}"; do
     case $f in
-        src/*.cpp) clang-tidy -p "$build" --quiet --header-filter="$filter" "$f" ;;
+        src/*.cpp)
+            # sources behind a build option the build dir did not enable have no compile command
+            if grep -qF "/$f\"" "$build/compile_commands.json"; then
+                clang-tidy -p "$build" --quiet --header-filter="$filter" "$f"
+            else
+                echo "skipping clang-tidy for $f because $build does not compile it"
+            fi
+            ;;
     esac
 done
