@@ -25,6 +25,7 @@ add_library(clipvault_lib STATIC
     src/core/Logging.cpp
     src/core/SecretDetector.cpp
     src/core/SecureZero.cpp
+    src/core/WordPieceTokenizer.cpp
     src/storage/Database.cpp
     src/storage/ClipboardRepository.cpp
     src/storage/SettingsRepository.cpp
@@ -60,6 +61,7 @@ add_library(clipvault_lib STATIC
     src/core/SearchFilter.h
     src/core/SecretDetector.h
     src/core/SecureZero.h
+    src/core/WordPieceTokenizer.h
     src/storage/Database.h
     src/storage/ClipboardRepository.h
     src/storage/SettingsRepository.h
@@ -101,6 +103,7 @@ set(CLIPVAULT_STRICT_SOURCES
     src/platform/GnomeShellFocusTracker.cpp
     src/services/ProvenanceService.cpp
     src/ui/ProvenanceDialog.cpp
+    src/core/WordPieceTokenizer.cpp
 )
 
 # the x11 focus tracker is optional and the factory falls back without it

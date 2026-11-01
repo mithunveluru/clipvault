@@ -32,6 +32,7 @@ set(CLIPVAULT_STRICT_TESTS
     test_provenance_service
     test_source_line
     test_provenance_adversarial
+    test_wordpiece_tokenizer
 )
 if(XCB_FOUND)
     list(APPEND CLIPVAULT_STRICT_TESTS test_x11_focus_tracker test_x11_focus_tracker_adversarial)
