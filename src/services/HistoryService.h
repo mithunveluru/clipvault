@@ -34,7 +34,7 @@ public:
     HistoryService(ClipboardRepository& repository, const SettingsService& settings,
                    QObject* parent = nullptr);
 
-    AddOutcome add(const QString& content);
+    AddOutcome add(const QString& content, const Provenance& source = {});
 
     bool setPinned(qint64 id, bool pinned);
     bool remove(qint64 id);

@@ -16,6 +16,7 @@ endforeach()
 set(CLIPVAULT_STRICT_TESTS
     test_migration
     test_repository_fields
+    test_settings
 )
 
 foreach(test IN LISTS CLIPVAULT_STRICT_TESTS)

@@ -36,7 +36,7 @@ QString HistoryService::hashOf(const QString& content)
         QCryptographicHash::hash(content.toUtf8(), QCryptographicHash::Sha256).toHex());
 }
 
-HistoryService::AddOutcome HistoryService::add(const QString& content)
+HistoryService::AddOutcome HistoryService::add(const QString& content, const Provenance& source)
 {
     if (isBlank(content))
         return { AddStatus::IgnoredEmpty, -1 };
@@ -53,6 +53,7 @@ HistoryService::AddOutcome HistoryService::add(const QString& content)
     item.type = classify(content);
     item.contentHash = hashOf(content);
     item.createdAt = QDateTime::currentDateTimeUtc();
+    item.source = source;
 
     const int retention = m_settings.retentionSeconds();
     if (retention > 0)
