@@ -31,8 +31,8 @@ Written in C++20 with Qt 6. No server, no accounts, no network.
   timestamped without any interaction.
 - **No duplicate spam.** Re-copying something you already have updates its
   recency instead of adding a second row, and keeps its pin.
-- **Instant search.** Results update as you type; sub-millisecond at 10,000
-  entries (see [Performance](#performance)).
+- **Instant search.** Results update as you type, in about a millisecond or
+  less at 10,000 entries (see [Performance](#performance)).
 - **Keyboard first.** Open, search, navigate, select and paste without touching
   the mouse.
 - **Pinning.** Pinned entries sort to the top and are never removed by retention
@@ -51,6 +51,9 @@ Written in C++20 with Qt 6. No server, no accounts, no network.
   [Clip sources](#clip-sources)).
 - **Search filters.** `app:`, `title:` and `date:` narrow a search (see
   [Search syntax](#search-syntax)).
+- **Optional semantic search.** A separate build option adds search by
+  meaning with a local model you download yourself. It is off by default and
+  never downloads anything (see [docs/semantic-search.md](docs/semantic-search.md)).
 
 ## Privacy model
 
@@ -157,6 +160,10 @@ cmake --build build
 ```
 
 A `Debug` build is the same command with `-DCMAKE_BUILD_TYPE=Debug`.
+
+Semantic search needs ONNX Runtime and is built only with
+`-DCLIPVAULT_SEMANTIC=ON -DONNXRUNTIME_ROOT=<extracted release>`. Model setup
+is in [docs/semantic-search.md](docs/semantic-search.md).
 
 ## Run
 
@@ -354,11 +361,12 @@ ctest --test-dir build --output-on-failure
 CI runs the same command under `xvfb-run`. The `no_network` gate needs `strace`,
 `xvfb-run` and `dbus-run-session`, and is registered only when all three exist.
 
-25 QtTest suites with 189 test functions, plus the `no_network` gate. QtTest
-reports 265 passes because it also counts data rows and each suite's setup and
-teardown. The two X11 suites are built only when xcb is found. Every suite builds its own
-database in a temporary directory — the tests never read or modify your real
-history.
+31 QtTest suites with 225 test functions, plus the `no_network` gate. QtTest
+reports 322 passes because it also counts data rows and each suite's setup and
+teardown. A semantic build adds `test_onnx_embedding`, which runs against the
+real model only when `CLIPVAULT_TEST_MODEL_DIR` points at it. The two X11
+suites are built only when xcb is found. Every suite builds its own database in
+a temporary directory — the tests never read or modify your real history.
 
 | Suites | Cover |
 |---|---|
@@ -367,6 +375,7 @@ history.
 | `test_secret_*`, `test_ephemeral_store` | Detection against positive and false-positive corpora, the in-memory store and timer, pinning, the copy-back warning, and that no secret byte reaches the database, WAL or log |
 | `test_source_location*`, `test_focus_tracker*`, `test_x11_focus_tracker*` | Path rules, safe opening, the GNOME extension protocol against a fake bus service, and the X11 tracker under xvfb |
 | `test_search_parse`, `test_provenance_*`, `test_source_line` | Search prefixes, source recording policy, the source line and detail view |
+| `test_wordpiece_tokenizer`, `test_embedding_*`, `test_semantic_*`, `test_search_blend`, `test_onnx_embedding` | Tokenizer against the reference, the worker thread and its shutdown, vector storage, blending, prefixes and secrets, and the real model |
 
 The `*_adversarial` suites hold the release-gate cases from security review.
 
@@ -383,13 +392,19 @@ estimates.
 |---|---|
 | Cold start to shortcut-ready | 59 / 70 / 68 ms over three runs |
 | Database open + migrate | 8.9 ms |
-| Insert (classify, hash, dedupe, store) | 0.143 ms per entry, mean over 10,000 |
-| Search, recent list | 0.24 ms |
-| Search, matching term | 0.32 ms |
-| Search, no matches (full scan) | 0.84 ms |
-| Resident memory, headless with 10,000 entries | 30 MB |
+| Insert (classify, hash, dedupe, store) | 0.12 ms per entry, mean over 10,000 |
+| Search, recent list | 0.33 ms |
+| Search, matching term | 0.44–0.50 ms |
+| Search, no matches (full scan) | 1.15–1.23 ms |
+| Resident memory, headless with 10,000 entries | 31 MB |
 | Resident memory, running with the window | 58 MB |
 | CPU while idle | 0 ticks over 10 s |
+
+The insert, search and headless memory rows are from 2026-11-02, after secret
+radar, clip sources and semantic search, as the median of five runs pinned to
+one core with `tools/bench.sh`. The other rows are from the first release.
+Search is about 35–50% slower than in the first release; see
+[design notes](docs/design-notes.md).
 
 Search is a SQLite `LIKE` scan. At this size it is far below the threshold where
 anyone could perceive it, so FTS5 has not been introduced — it would add an
@@ -420,7 +435,9 @@ clipboard manager must paste back precisely what was copied, so `" foo"` and
 
 **Single-threaded by intent.** `QClipboard` has thread affinity, and the work per
 capture is a string read, a hash and one indexed insert — 0.14 ms. Adding worker
-threads would buy nothing and cost correctness.
+threads would buy nothing and cost correctness. Optional semantic search adds
+one embedding thread, which exists only while that feature is on and never
+touches the clipboard or the database.
 
 **Entries above 2 MB are refused**, with a message in the status bar, so a
 runaway copy cannot wedge the list or the search scan.
@@ -441,6 +458,10 @@ runaway copy cannot wedge the list or the search scan.
 - **Clip sources are best effort.** Native Wayland windows have no source
   unless the GNOME extension is installed, and terminal tabs or editor titles
   can point at the wrong place.
+- **Semantic search model hash is unconfirmed.** The pinned hash of the
+  official model file has not been checked against a download. Every test used
+  a local export of the same model. If the hash is wrong, the feature refuses
+  to turn on. See [docs/semantic-search.md](docs/semantic-search.md).
 - **`Ctrl+Shift+V` collides with "paste as plain text"** in many applications.
   The desktop shortcut wins while ClipVault is running; change it in Settings if
   that is not what you want.
