@@ -73,3 +73,46 @@ jobs:
           tools/check_attribution.sh "$range"
           # catches leftover conflict markers and whitespace errors in added lines
           git diff --check "$range"
+
+  semantic:
+    runs-on: ubuntu-24.04
+    env:
+      ORT_VERSION: 1.20.1
+      ORT_SHA256: 67db4dc1561f1e3fd42e619575c82c601ef89849afc7ea85a003abbac1a1a105
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build qt6-base-dev qt6-base-dev-tools \
+            libqt6sql6-sqlite libgl1-mesa-dev \
+            xvfb xauth dbus strace libxcb-cursor0 pkg-config libxcb1-dev curl
+          python3 -m pip install --user --break-system-packages clang-tidy==23.1.4
+
+      - name: Fetch pinned onnx runtime
+        # only the runtime is downloaded and never a model
+        run: |
+          mkdir -p "$RUNNER_TEMP/ort"
+          cd "$RUNNER_TEMP/ort"
+          curl -fsSL -o ort.tgz \
+            "https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-x64-${ORT_VERSION}.tgz"
+          echo "${ORT_SHA256}  ort.tgz" | sha256sum -c -
+          tar -xzf ort.tgz
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCLIPVAULT_SEMANTIC=ON \
+            -DONNXRUNTIME_ROOT="$RUNNER_TEMP/ort/onnxruntime-linux-x64-${ORT_VERSION}"
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Tidy the onnx provider
+        # the lint job builds without the option so only this job can tidy this file
+        run: clang-tidy -p build --quiet --header-filter='src/services/OnnxEmbeddingProvider[.]h' src/services/OnnxEmbeddingProvider.cpp
+
+      - name: Test
+        # every suite and the no network gate with the runtime linked and the real model test skipped
+        run: xvfb-run -a ctest --test-dir build --output-on-failure

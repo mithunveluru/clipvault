@@ -32,6 +32,12 @@ set(CLIPVAULT_STRICT_TESTS
     test_provenance_service
     test_source_line
     test_provenance_adversarial
+    test_wordpiece_tokenizer
+    test_embedding_repository
+    test_embedding_engine
+    test_semantic_index
+    test_search_blend
+    test_semantic_window
 )
 if(XCB_FOUND)
     list(APPEND CLIPVAULT_STRICT_TESTS test_x11_focus_tracker test_x11_focus_tracker_adversarial)
@@ -48,6 +54,14 @@ if(XCB_FOUND)
     target_link_libraries(test_x11_focus_tracker PRIVATE PkgConfig::XCB)
     target_link_libraries(test_x11_focus_tracker_adversarial PRIVATE PkgConfig::XCB)
     set_tests_properties(test_x11_focus_tracker_adversarial PROPERTIES TIMEOUT 60)
+endif()
+
+if(CLIPVAULT_SEMANTIC)
+    add_executable(test_onnx_embedding test_onnx_embedding.cpp)
+    target_link_libraries(test_onnx_embedding PRIVATE clipvault_lib Qt6::Test)
+    target_compile_options(test_onnx_embedding PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_compile_definitions(test_onnx_embedding PRIVATE CLIPVAULT_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+    add_test(NAME test_onnx_embedding COMMAND test_onnx_embedding)
 endif()
 
 # release gate that needs strace and xvfb and is skipped nowhere in ci

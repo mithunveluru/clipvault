@@ -30,6 +30,9 @@ public:
     // Pinned first then newest first
     QList<ClipboardItem> search(const QString& query, int limit) const;
     [[nodiscard]] QList<ClipboardItem> search(const SearchFilter& filter, int limit) const;
+    // rows among ids that pass the app title and date parts of filter and are not secrets in no set order
+    [[nodiscard]] QList<ClipboardItem> findFiltered(
+        const QList<qint64>& ids, const SearchFilter& filter) const;
 
     bool setPinned(qint64 id, bool pinned);
     bool setCopiedInto(qint64 id, const QString& app);

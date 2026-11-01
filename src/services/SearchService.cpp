@@ -1,6 +1,8 @@
 #include "SearchService.h"
 
+#include <QHash>
 #include <QRegularExpression>
+#include <QSet>
 #include <QStringList>
 
 namespace clipvault {
@@ -102,6 +104,36 @@ QString SearchService::appQuery(const QString& app)
     QString escaped = app;
     escaped.replace(QLatin1Char('\\'), QStringLiteral("\\\\")).replace(QLatin1Char('"'), QStringLiteral("\\\""));
     return QStringLiteral("app:\"%1\"").arg(escaped);
+}
+
+QList<ClipboardItem> SearchService::searchBlended(
+    const QString& query, const QList<qint64>& semanticIds, int limit) const
+{
+    const int cap = qBound(1, limit, 5000);
+    const SearchFilter filter = parse(query, QDateTime::currentDateTime());
+    QList<ClipboardItem> results = m_repository.search(filter, cap);
+    QSet<qint64> seen;
+    for (const ClipboardItem& item : results)
+        seen.insert(item.id);
+    // semantic hits obey the same prefixes as the lexical side
+    QHash<qint64, ClipboardItem> candidates;
+    for (ClipboardItem& item : m_repository.findFiltered(semanticIds, filter))
+        candidates.insert(item.id, std::move(item));
+    for (const qint64 id : semanticIds) {
+        if (results.size() >= cap)
+            break;
+        const auto found = candidates.constFind(id);
+        if (found == candidates.constEnd() || seen.contains(id))
+            continue;
+        seen.insert(id);
+        results.append(*found);
+    }
+    return results;
+}
+
+QString SearchService::semanticText(const QString& query)
+{
+    return parse(query, QDateTime::currentDateTime()).text;
 }
 
 } // namespace clipvault

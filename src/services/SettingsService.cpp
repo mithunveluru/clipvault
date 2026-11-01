@@ -17,6 +17,8 @@ constexpr auto kSecretRiskyApps = "secret_risky_apps";
 constexpr auto kProvenance = "provenance_enabled";
 constexpr auto kProvenanceTitles = "provenance_titles";
 constexpr auto kProvenanceBlocklist = "provenance_blocklist";
+constexpr auto kSemanticEnabled = "semantic_enabled";
+constexpr auto kSemanticModelDir = "semantic_model_dir";
 } // namespace
 
 SettingsService::SettingsService(SettingsRepository& repository, QObject* parent)
@@ -229,6 +231,26 @@ QStringList SettingsService::provenanceBlocklist() const
 void SettingsService::setProvenanceBlocklist(const QStringList& apps)
 {
     writeList(kProvenanceBlocklist, apps);
+}
+
+bool SettingsService::semanticEnabled() const
+{
+    return readFlag(kSemanticEnabled, false);
+}
+
+void SettingsService::setSemanticEnabled(bool enabled)
+{
+    writeFlag(kSemanticEnabled, enabled);
+}
+
+QString SettingsService::semanticModelDir() const
+{
+    return read(QLatin1String(kSemanticModelDir), QString());
+}
+
+void SettingsService::setSemanticModelDir(const QString& dir)
+{
+    write(QLatin1String(kSemanticModelDir), dir);
 }
 
 // The desktop entry is the only source of truth

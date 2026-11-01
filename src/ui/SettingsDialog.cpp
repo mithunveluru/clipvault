@@ -1,11 +1,15 @@
 #include "SettingsDialog.h"
 
+#include "../services/OnnxEmbeddingProvider.h"
+#include "../services/SemanticIndex.h"
 #include "../services/SettingsService.h"
 
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
+#include <QFileDialog>
 #include <QFormLayout>
+#include <QHBoxLayout>
 #include <QGroupBox>
 #include <QKeySequenceEdit>
 #include <QLabel>
@@ -17,6 +21,24 @@
 #include <QVBoxLayout>
 
 namespace clipvault {
+namespace {
+
+QString semanticStatusText(SemanticIndex::Status status)
+{
+    switch (status) {
+    case SemanticIndex::Status::Off: return QObject::tr("Status: off");
+    case SemanticIndex::Status::Verifying: return QObject::tr("Status: verifying the model files\u2026");
+    case SemanticIndex::Status::Ready: return QObject::tr("Status: ready");
+    case SemanticIndex::Status::FilesMissing:
+        return QObject::tr("Status: files missing \u2014 the folder needs model.onnx and vocab.txt");
+    case SemanticIndex::Status::HashMismatch:
+        return QObject::tr("Status: hash mismatch \u2014 these are not the expected files, nothing was loaded");
+    case SemanticIndex::Status::Failed: return QObject::tr("Status: the model could not be loaded");
+    }
+    return QString();
+}
+
+} // namespace
 
 SettingsDialog::SettingsDialog(SettingsService& settings, QString hotkeyNote, QString databasePath,
                                bool capturePaused, QWidget* parent)
@@ -182,6 +204,8 @@ void SettingsDialog::buildUi(const QString& hotkeyNote, const QString& databaseP
 
     root->addWidget(radar);
 
+    buildSemanticGroup(root);
+
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::accept);
     root->addWidget(buttons);
@@ -266,6 +290,72 @@ void SettingsDialog::setFocusMechanism(const QString& description)
 {
     m_focusMechanism->setText(description);
     fitToContents();
+}
+
+void SettingsDialog::buildSemanticGroup(QLayout* root)
+{
+    auto* group = new QGroupBox(tr("Semantic search"), this);
+    auto* layout = new QVBoxLayout(group);
+    root->addWidget(group);
+
+    if (!SemanticIndex::isCompiledIn()) {
+        auto* note = new QLabel(tr("This build of ClipVault has no semantic search."), group);
+        note->setWordWrap(true);
+        note->setEnabled(false);
+        layout->addWidget(note);
+        return;
+    }
+
+    auto* enabled = new QCheckBox(tr("Also find clips by meaning, on this computer only"), group);
+    enabled->setChecked(m_settings.semanticEnabled());
+    connect(enabled, &QCheckBox::toggled, this, [this](bool on) { m_settings.setSemanticEnabled(on); });
+    layout->addWidget(enabled);
+
+    auto* folderRow = new QHBoxLayout;
+    auto* folder = new QLineEdit(m_settings.semanticModelDir(), group);
+    folder->setReadOnly(true);
+    folder->setPlaceholderText(tr("No model folder chosen"));
+    auto* choose = new QPushButton(tr("Choose folder\u2026"), group);
+    connect(choose, &QPushButton::clicked, this, [this, folder] {
+        const QString dir = QFileDialog::getExistingDirectory(this, tr("Folder with model.onnx and vocab.txt"),
+            m_settings.semanticModelDir());
+        if (dir.isEmpty())
+            return;
+        folder->setText(dir);
+        m_settings.setSemanticModelDir(dir);
+    });
+    folderRow->addWidget(folder, 1);
+    folderRow->addWidget(choose);
+    layout->addLayout(folderRow);
+
+    auto* note = new QLabel(tr("ClipVault never downloads the model. Fetch these two files yourself from %1 at "
+                               "revision %2, put them in one folder and choose it above:\n"
+                               "\u2022 %3 saved as %4, sha256 %5\n"
+                               "\u2022 %6 saved as %7, sha256 %8\n"
+                               "Files with any other hash are refused.")
+                                .arg(QLatin1String(semantic_model::kRepository), QLatin1String(semantic_model::kRevision),
+                                    QLatin1String(semantic_model::kUpstreamModelPath),
+                                    QLatin1String(semantic_model::kModelFile), QLatin1String(semantic_model::kModelSha256),
+                                    QLatin1String(semantic_model::kUpstreamVocabPath),
+                                    QLatin1String(semantic_model::kVocabFile), QLatin1String(semantic_model::kVocabSha256)),
+        group);
+    note->setWordWrap(true);
+    note->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    note->setEnabled(false);
+    layout->addWidget(note);
+
+    m_semanticStatus = new QLabel(semanticStatusText(SemanticIndex::Status::Off), group);
+    m_semanticStatus->setWordWrap(true);
+    layout->addWidget(m_semanticStatus);
+}
+
+void SettingsDialog::setSemanticIndex(const SemanticIndex& index)
+{
+    if (!m_semanticStatus)
+        return;
+    m_semanticStatus->setText(semanticStatusText(index.status()));
+    connect(&index, &SemanticIndex::statusChanged, m_semanticStatus,
+        [label = m_semanticStatus](SemanticIndex::Status status) { label->setText(semanticStatusText(status)); });
 }
 
 } // namespace clipvault

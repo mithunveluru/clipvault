@@ -25,15 +25,19 @@ add_library(clipvault_lib STATIC
     src/core/Logging.cpp
     src/core/SecretDetector.cpp
     src/core/SecureZero.cpp
+    src/core/WordPieceTokenizer.cpp
     src/storage/Database.cpp
     src/storage/ClipboardRepository.cpp
     src/storage/SettingsRepository.cpp
+    src/storage/EmbeddingRepository.cpp
     src/services/SettingsService.cpp
     src/services/HistoryService.cpp
     src/services/SearchService.cpp
     src/services/EphemeralStore.cpp
     src/services/SecretCopyWarner.cpp
     src/services/ProvenanceService.cpp
+    src/services/EmbeddingEngine.cpp
+    src/services/SemanticIndex.cpp
     src/clipboard/ClipboardMonitor.cpp
     src/platform/Autostart.cpp
     src/platform/SingleInstance.cpp
@@ -60,15 +64,21 @@ add_library(clipvault_lib STATIC
     src/core/SearchFilter.h
     src/core/SecretDetector.h
     src/core/SecureZero.h
+    src/core/WordPieceTokenizer.h
+    src/core/EmbeddingProvider.h
     src/storage/Database.h
     src/storage/ClipboardRepository.h
     src/storage/SettingsRepository.h
+    src/storage/EmbeddingRepository.h
     src/services/SettingsService.h
     src/services/HistoryService.h
     src/services/SearchService.h
     src/services/EphemeralStore.h
     src/services/SecretCopyWarner.h
     src/services/ProvenanceService.h
+    src/services/OnnxEmbeddingProvider.h
+    src/services/EmbeddingEngine.h
+    src/services/SemanticIndex.h
     src/clipboard/ClipboardMonitor.h
     src/platform/Autostart.h
     src/platform/SingleInstance.h
@@ -101,6 +111,11 @@ set(CLIPVAULT_STRICT_SOURCES
     src/platform/GnomeShellFocusTracker.cpp
     src/services/ProvenanceService.cpp
     src/ui/ProvenanceDialog.cpp
+    src/core/WordPieceTokenizer.cpp
+    src/services/OnnxEmbeddingProvider.cpp
+    src/storage/EmbeddingRepository.cpp
+    src/services/EmbeddingEngine.cpp
+    src/services/SemanticIndex.cpp
 )
 
 # the x11 focus tracker is optional and the factory falls back without it
@@ -128,6 +143,13 @@ endif()
 
 if(CLIPVAULT_SEMANTIC)
     target_compile_definitions(clipvault_lib PUBLIC CLIPVAULT_SEMANTIC=1)
+    if(NOT ONNXRUNTIME_ROOT)
+        message(FATAL_ERROR "CLIPVAULT_SEMANTIC needs -DONNXRUNTIME_ROOT=<extracted onnxruntime release>")
+    endif()
+    find_library(ONNXRUNTIME_LIBRARY onnxruntime PATHS ${ONNXRUNTIME_ROOT}/lib NO_DEFAULT_PATH REQUIRED)
+    target_sources(clipvault_lib PRIVATE src/services/OnnxEmbeddingProvider.cpp)
+    target_include_directories(clipvault_lib SYSTEM PRIVATE ${ONNXRUNTIME_ROOT}/include)
+    target_link_libraries(clipvault_lib PUBLIC ${ONNXRUNTIME_LIBRARY})
 endif()
 
 qt_add_executable(clipvault src/main.cpp)
@@ -135,6 +157,11 @@ target_link_libraries(clipvault PRIVATE clipvault_lib)
 
 add_executable(clipvault_bench tools/bench.cpp)
 target_link_libraries(clipvault_bench PRIVATE clipvault_lib)
+
+if(CLIPVAULT_SEMANTIC)
+    add_executable(clipvault_semantic_bench tools/semantic_bench.cpp)
+    target_link_libraries(clipvault_semantic_bench PRIVATE clipvault_lib)
+endif()
 
 include(GNUInstallDirs)
 install(TARGETS clipvault RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

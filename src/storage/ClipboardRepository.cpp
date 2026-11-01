@@ -45,6 +45,34 @@ QString escapeLike(const QString& text)
     return out;
 }
 
+QString likePattern(const QString& text)
+{
+    return QLatin1Char('%') + escapeLike(text) + QLatin1Char('%');
+}
+
+// the app title and date prefixes shared by search and findFiltered
+void appendPrefixFilters(const SearchFilter& filter, QStringList& where, QVariantList& binds)
+{
+    const QString app = filter.app.trimmed();
+    if (!app.isEmpty()) {
+        where << QStringLiteral("(source_app LIKE ? ESCAPE '\\' OR source_class LIKE ? ESCAPE '\\')");
+        binds << likePattern(app) << likePattern(app);
+    }
+    const QString title = filter.title.trimmed();
+    if (!title.isEmpty()) {
+        where << QStringLiteral("source_title LIKE ? ESCAPE '\\'");
+        binds << likePattern(title);
+    }
+    if (filter.since) {
+        where << QStringLiteral("created_at >= ?");
+        binds << filter.since->toSecsSinceEpoch();
+    }
+    if (filter.until) {
+        where << QStringLiteral("created_at < ?");
+        binds << filter.until->toSecsSinceEpoch();
+    }
+}
+
 // null keeps optional columns null rather than empty strings
 QVariant orNull(const QString& text)
 {
@@ -191,33 +219,15 @@ QList<ClipboardItem> ClipboardRepository::search(const SearchFilter& filter, int
 {
     QStringList where;
     QVariantList binds;
-    auto like = [](const QString& text) { return QLatin1Char('%') + escapeLike(text) + QLatin1Char('%'); };
 
     const QString text = filter.text.trimmed();
     if (!text.isEmpty()) {
         // LIKE is case insensitive for ASCII
         // pinned secrets stay masked so their text must not confirm a guess
         where << QStringLiteral("(secret_kind IS NULL AND content LIKE ? ESCAPE '\\')");
-        binds << like(text);
+        binds << likePattern(text);
     }
-    const QString app = filter.app.trimmed();
-    if (!app.isEmpty()) {
-        where << QStringLiteral("(source_app LIKE ? ESCAPE '\\' OR source_class LIKE ? ESCAPE '\\')");
-        binds << like(app) << like(app);
-    }
-    const QString title = filter.title.trimmed();
-    if (!title.isEmpty()) {
-        where << QStringLiteral("source_title LIKE ? ESCAPE '\\'");
-        binds << like(title);
-    }
-    if (filter.since) {
-        where << QStringLiteral("created_at >= ?");
-        binds << filter.since->toSecsSinceEpoch();
-    }
-    if (filter.until) {
-        where << QStringLiteral("created_at < ?");
-        binds << filter.until->toSecsSinceEpoch();
-    }
+    appendPrefixFilters(filter, where, binds);
 
     QString sqlText = QStringLiteral("SELECT %1 FROM clipboard_items").arg(QLatin1String(kColumns));
     if (!where.isEmpty())
@@ -233,6 +243,37 @@ QList<ClipboardItem> ClipboardRepository::search(const SearchFilter& filter, int
     QList<ClipboardItem> results;
     if (!sql.exec()) {
         reportFailure(sql, "search");
+        return results;
+    }
+    while (sql.next())
+        results.append(readRow(sql));
+    return results;
+}
+
+QList<ClipboardItem> ClipboardRepository::findFiltered(
+    const QList<qint64>& ids, const SearchFilter& filter) const
+{
+    QList<ClipboardItem> results;
+    if (ids.isEmpty())
+        return results;
+    // pinned secrets stay masked so a meaning match must not surface them either
+    QStringList where { QStringLiteral("secret_kind IS NULL") };
+    QVariantList binds;
+    appendPrefixFilters(filter, where, binds);
+    QStringList marks;
+    for (const qint64 id : ids) {
+        marks << QStringLiteral("?");
+        binds << id;
+    }
+    where << QStringLiteral("id IN (%1)").arg(marks.join(QLatin1Char(',')));
+
+    QSqlQuery sql(m_db);
+    sql.prepare(QStringLiteral("SELECT %1 FROM clipboard_items WHERE %2")
+            .arg(QLatin1String(kColumns), where.join(QStringLiteral(" AND "))));
+    for (const QVariant& value : binds)
+        sql.addBindValue(value);
+    if (!sql.exec()) {
+        reportFailure(sql, "findFiltered");
         return results;
     }
     while (sql.next())

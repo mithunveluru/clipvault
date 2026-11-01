@@ -1,0 +1,12 @@
+{"text": "hello world", "ids": [101, 7592, 2088, 102]}
+{"text": "Héllo, WORLD!!", "ids": [101, 7592, 1010, 2088, 999, 999, 102]}
+{"text": "git rebase --onto main~3", "ids": [101, 21025, 2102, 2128, 15058, 1011, 1011, 3031, 2364, 1066, 1017, 102]}
+{"text": "unaffable tokenization", "ids": [101, 14477, 20961, 3468, 19204, 3989, 102]}
+{"text": "naïve café résumé", "ids": [101, 15743, 7668, 13746, 102]}
+{"text": "日本語のテキスト", "ids": [101, 1864, 1876, 1950, 1671, 30239, 30227, 30233, 30240, 102]}
+{"text": "email me at a.b@example.com", "ids": [101, 10373, 2033, 2012, 1037, 1012, 1038, 1030, 2742, 1012, 4012, 102]}
+{"text": "   spaced\tout\nlines  ", "ids": [101, 19835, 2041, 3210, 102]}
+{"text": "C++20 std::unique_ptr<T>", "ids": [101, 1039, 1009, 1009, 2322, 2358, 2094, 1024, 1024, 4310, 1035, 13866, 2099, 1026, 1056, 1028, 102]}
+{"text": "supercalifragilisticexpialidocious", "ids": [101, 3565, 9289, 10128, 29181, 24411, 4588, 10288, 19312, 21273, 10085, 6313, 102]}
+{"text": "", "ids": [101, 102]}
+{"text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "ids": [101, 100, 102]}

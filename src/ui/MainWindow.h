@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QList>
 #include <QString>
 #include <QTimer>
 #include <QWidget>
@@ -16,6 +17,7 @@ class ClipboardListModel;
 class HistoryService;
 class ProvenanceService;
 class SearchService;
+class SemanticIndex;
 class SettingsService;
 
 // Doubles as the quick pick popup opened by the shortcut
@@ -45,6 +47,8 @@ public:
     void setProvenanceService(ProvenanceService* provenance) { m_provenance = provenance; }
     // Content free message shown briefly in the footer
     void flashStatus(const QString& message);
+    // semantic hits are appended once they arrive for the current text
+    void setSemanticIndex(SemanticIndex* index);
 
 signals:
     // The controller owns writing the choice to the clipboard
@@ -96,6 +100,10 @@ private:
     QLabel* m_statusLabel = nullptr;
     QToolButton* m_settingsButton = nullptr;
     QTimer m_countdown;
+
+    SemanticIndex* m_semantic = nullptr;
+    QString m_semanticQuery;
+    QList<qint64> m_semanticIds;
 
     QString m_hotkeyNote;
     QString m_databasePath;
