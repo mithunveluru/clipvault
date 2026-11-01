@@ -17,7 +17,7 @@ if [ -z "${CLIPVAULT_ISOLATED:-}" ]; then
 fi
 tmp=$CLIPVAULT_ISOLATED
 
-if grep -rnE 'QTcpSocket|QTcpServer|QUdpSocket|QSslSocket|QNetworkAccessManager|QNetworkRequest|QDnsLookup|QHostInfo|getaddrinfo|AF_INET' "$root/src"; then
+if grep -rnE 'QTcpSocket|QTcpServer|QUdpSocket|QSslSocket|QWebSocket|QNetwork[A-Z][A-Za-z]*|QDnsLookup|QHostInfo|getaddrinfo|gethostbyname|AF_INET|PF_INET|curl_|libcurl|io_uring' "$root/src"; then
     echo "FAIL network api referenced in src"
     exit 1
 fi

@@ -41,6 +41,8 @@ private slots:
     void appFilterWildcardsAreLiteral();
     void copiedIntoAndClearProvenance();
     void secretKindRoundTrips();
+    void refreshSetsSecretKindButNeverClearsIt();
+    void appAndTitleFiltersAreTrimmed();
 };
 
 void TestRepositoryFields::provenanceRoundTrips()
@@ -169,6 +171,32 @@ void TestRepositoryFields::secretKindRoundTrips()
     item.secretKind = QStringLiteral("github-token");
     const auto stored = fx.repository().upsert(item);
     QCOMPARE(fx.repository().findById(stored->id)->secretKind, QStringLiteral("github-token"));
+}
+
+void TestRepositoryFields::refreshSetsSecretKindButNeverClearsIt()
+{
+    test::Fixture fx;
+    const auto stored = fx.repository().upsert(makeItem(QStringLiteral("s"), kBase));
+    QVERIFY(stored);
+    ClipboardItem flagged = makeItem(QStringLiteral("s"), kBase.addSecs(5));
+    flagged.secretKind = QStringLiteral("github-token");
+    QVERIFY(fx.repository().upsert(flagged));
+    QCOMPARE(fx.repository().findById(stored->id)->secretKind, QStringLiteral("github-token"));
+    QVERIFY(fx.repository().upsert(makeItem(QStringLiteral("s"), kBase.addSecs(10))));
+    QCOMPARE(fx.repository().findById(stored->id)->secretKind, QStringLiteral("github-token"));
+}
+
+void TestRepositoryFields::appAndTitleFiltersAreTrimmed()
+{
+    test::Fixture fx;
+    QVERIFY(fx.repository().upsert(makeItem(
+        QStringLiteral("one"), kBase, QStringLiteral("Firefox"), QString(), QStringLiteral("Docs"))));
+    SearchFilter filter;
+    filter.app = QStringLiteral(" firefox ");
+    QCOMPARE(fx.repository().search(filter, 10).size(), 1);
+    filter.app.clear();
+    filter.title = QStringLiteral(" docs ");
+    QCOMPARE(fx.repository().search(filter, 10).size(), 1);
 }
 
 QTEST_GUILESS_MAIN(TestRepositoryFields)

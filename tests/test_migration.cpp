@@ -1,6 +1,7 @@
 #include "storage/Database.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QTest>
@@ -79,11 +80,15 @@ void TestMigration::upgradesV1PreservingHistory()
     QCOMPARE(
         scalar(db, QStringLiteral("SELECT count(*) FROM sqlite_master WHERE name = 'clip_embeddings'")), 1);
     QCOMPARE(scalar(db, QStringLiteral("PRAGMA secure_delete")), 1);
-    const QFileDevice::Permissions perms = QFile::permissions(path);
-    QVERIFY(perms.testFlag(QFileDevice::ReadOwner) && perms.testFlag(QFileDevice::WriteOwner));
-    QVERIFY(!(perms
-        & (QFileDevice::ReadGroup | QFileDevice::WriteGroup | QFileDevice::ExeGroup | QFileDevice::ReadOther
-            | QFileDevice::WriteOther | QFileDevice::ExeOther)));
+    const QFileDevice::Permissions groupOrOther = QFileDevice::ReadGroup | QFileDevice::WriteGroup
+        | QFileDevice::ExeGroup | QFileDevice::ReadOther | QFileDevice::WriteOther | QFileDevice::ExeOther;
+    for (const QString& file : { path, path + QStringLiteral("-wal"), path + QStringLiteral("-shm") }) {
+        QVERIFY2(QFile::exists(file), qPrintable(file));
+        const QFileDevice::Permissions perms = QFile::permissions(file);
+        QVERIFY(perms.testFlag(QFileDevice::ReadOwner) && perms.testFlag(QFileDevice::WriteOwner));
+        QVERIFY(!(perms & groupOrOther));
+    }
+    QVERIFY(!(QFile::permissions(QFileInfo(path).absolutePath()) & groupOrOther));
 }
 
 void TestMigration::reopenIsIdempotent()

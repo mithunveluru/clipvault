@@ -102,7 +102,8 @@ std::optional<ClipboardRepository::Stored> ClipboardRepository::upsert(const Cli
             " source_app = CASE WHEN ? THEN ? ELSE source_app END,"
             " source_class = CASE WHEN ? THEN ? ELSE source_class END,"
             " source_title = CASE WHEN ? THEN ? ELSE source_title END,"
-            " source_path = CASE WHEN ? THEN ? ELSE source_path END"
+            " source_path = CASE WHEN ? THEN ? ELSE source_path END,"
+            " secret_kind = COALESCE(?, secret_kind)"
             " WHERE id = ?"));
         update.addBindValue(createdAt);
         update.addBindValue(expiresAt);
@@ -113,6 +114,7 @@ std::optional<ClipboardRepository::Stored> ClipboardRepository::upsert(const Cli
             update.addBindValue(replaceSource);
             update.addBindValue(orNull(*field));
         }
+        update.addBindValue(orNull(item.secretKind));
         update.addBindValue(existingId);
         if (!update.exec())
             return rollback(update, "recency update");
@@ -197,13 +199,15 @@ QList<ClipboardItem> ClipboardRepository::search(const SearchFilter& filter, int
         where << QStringLiteral("content LIKE ? ESCAPE '\\'");
         binds << like(text);
     }
-    if (!filter.app.isEmpty()) {
+    const QString app = filter.app.trimmed();
+    if (!app.isEmpty()) {
         where << QStringLiteral("(source_app LIKE ? ESCAPE '\\' OR source_class LIKE ? ESCAPE '\\')");
-        binds << like(filter.app) << like(filter.app);
+        binds << like(app) << like(app);
     }
-    if (!filter.title.isEmpty()) {
+    const QString title = filter.title.trimmed();
+    if (!title.isEmpty()) {
         where << QStringLiteral("source_title LIKE ? ESCAPE '\\'");
-        binds << like(filter.title);
+        binds << like(title);
     }
     if (filter.since) {
         where << QStringLiteral("created_at >= ?");
