@@ -9,6 +9,7 @@
 #include <QGroupBox>
 #include <QKeySequenceEdit>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QVBoxLayout>
@@ -111,6 +112,64 @@ void SettingsDialog::buildUi(const QString& hotkeyNote, const QString& databaseP
     privacyLayout->addWidget(pathLabel);
 
     root->addWidget(privacy);
+
+    auto* radar = new QGroupBox(tr("Secret radar"), this);
+    auto* radarForm = new QFormLayout(radar);
+
+    m_secretRadar = new QCheckBox(tr("Keep copied passwords and keys in memory only"), radar);
+    m_secretRadar->setChecked(m_settings.secretRadarEnabled());
+    connect(m_secretRadar, &QCheckBox::toggled, this,
+            [this](bool on) { m_settings.setSecretRadarEnabled(on); });
+    radarForm->addRow(m_secretRadar);
+
+    m_secretTtl = new QSpinBox(radar);
+    m_secretTtl->setRange(SettingsService::kMinSecretTtlSeconds, SettingsService::kMaxSecretTtlSeconds);
+    m_secretTtl->setSuffix(tr(" s"));
+    m_secretTtl->setValue(m_settings.secretTtlSeconds());
+    m_secretTtl->setToolTip(tr("When the time runs out the secret is wiped from memory and, if it is "
+                               "still on the clipboard, the clipboard is cleared."));
+    connect(m_secretTtl, &QSpinBox::valueChanged, this,
+            [this](int value) { m_settings.setSecretTtlSeconds(value); });
+    radarForm->addRow(tr("Forget secrets after"), m_secretTtl);
+
+    m_secretPinnedNeverExpire = new QCheckBox(tr("Pinned secrets never expire"), radar);
+    m_secretPinnedNeverExpire->setChecked(m_settings.secretPinnedNeverExpire());
+    m_secretPinnedNeverExpire->setToolTip(tr("Pinning a secret saves it to disk. Without this option it is "
+                                             "still removed when the history retention period ends."));
+    connect(m_secretPinnedNeverExpire, &QCheckBox::toggled, this,
+            [this](bool on) { m_settings.setSecretPinnedNeverExpire(on); });
+    radarForm->addRow(m_secretPinnedNeverExpire);
+
+    m_secretCopyBackWarning = new QCheckBox(tr("Warn when a chat app is focused after copying a secret"),
+                                            radar);
+    m_secretCopyBackWarning->setChecked(m_settings.secretCopyBackWarning());
+    connect(m_secretCopyBackWarning, &QCheckBox::toggled, this,
+            [this](bool on) { m_settings.setSecretCopyBackWarning(on); });
+    radarForm->addRow(m_secretCopyBackWarning);
+
+    m_secretRiskyApps = new QLineEdit(m_settings.secretRiskyApps().join(QStringLiteral(", ")), radar);
+    m_secretRiskyApps->setPlaceholderText(tr("Comma separated app names"));
+    connect(m_secretRiskyApps, &QLineEdit::editingFinished, this, [this] {
+        QStringList apps;
+        for (const QString& part : m_secretRiskyApps->text().split(QLatin1Char(','), Qt::SkipEmptyParts)) {
+            const QString app = part.trimmed().toLower();
+            if (!app.isEmpty())
+                apps << app;
+        }
+        m_settings.setSecretRiskyApps(apps);
+    });
+    radarForm->addRow(tr("Chat apps"), m_secretRiskyApps);
+
+    auto* radarNote = new QLabel(
+        tr("Detection is a best guess from the text's shape and can miss secrets or flag ordinary text. "
+           "The warning is best effort: ClipVault cannot see when or where you paste, only which "
+           "window gets focus afterwards, and only on desktops that report focus."),
+        radar);
+    radarNote->setWordWrap(true);
+    radarNote->setEnabled(false);
+    radarForm->addRow(radarNote);
+
+    root->addWidget(radar);
 
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::accept);

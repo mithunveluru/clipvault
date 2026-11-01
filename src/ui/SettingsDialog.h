@@ -5,6 +5,7 @@
 class QCheckBox;
 class QComboBox;
 class QKeySequenceEdit;
+class QLineEdit;
 class QSpinBox;
 
 namespace clipvault {
@@ -32,6 +33,11 @@ private:
     QSpinBox* m_maxItems = nullptr;
     QCheckBox* m_startPaused = nullptr;
     QCheckBox* m_pauseCapture = nullptr;
+    QCheckBox* m_secretRadar = nullptr;
+    QSpinBox* m_secretTtl = nullptr;
+    QCheckBox* m_secretPinnedNeverExpire = nullptr;
+    QCheckBox* m_secretCopyBackWarning = nullptr;
+    QLineEdit* m_secretRiskyApps = nullptr;
 };
 
 } // namespace clipvault

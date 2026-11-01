@@ -85,6 +85,7 @@ void ClipboardItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem&
 
     const auto type = static_cast<ClipboardType>(index.data(ClipboardListModel::TypeRole).toInt());
     const bool pinned = index.data(ClipboardListModel::PinnedRole).toBool();
+    const QString secretKind = index.data(ClipboardListModel::SecretKindRole).toString();
 
     const QRect badge(row.left() + kPadding, row.top() + (row.height() - kBadgeSize) / 2,
                       kBadgeSize, kBadgeSize);
@@ -97,7 +98,7 @@ void ClipboardItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem&
     badgeFont.setBold(true);
     painter->setFont(badgeFont);
     painter->setPen(secondary);
-    painter->drawText(badge, Qt::AlignCenter, glyphFor(type));
+    painter->drawText(badge, Qt::AlignCenter, secretKind.isEmpty() ? glyphFor(type) : QStringLiteral("\u2731"));
 
     // Pin marker on the right keeps the baseline stable
     QRect textArea(badge.right() + kBadgeGap, row.top() + 8,
@@ -126,8 +127,18 @@ void ClipboardItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem&
     painter->setFont(metaFont);
     painter->setPen(secondary);
     const QDateTime created = index.data(ClipboardListModel::CreatedAtRole).toDateTime();
-    const QString meta = QStringLiteral("%1  ·  %2")
-                             .arg(relativeTime(created, referenceTime()), toString(type));
+    QString meta = QStringLiteral("%1  ·  %2")
+                       .arg(relativeTime(created, referenceTime()),
+                            secretKind.isEmpty() ? toString(type) : secretKindLabel(secretKind));
+    if (!secretKind.isEmpty()) {
+        const int remaining = index.data(ClipboardListModel::RemainingRole).toInt();
+        if (remaining >= 0)
+            meta += tr("  ·  wiped in %1 s").arg(remaining);
+        else if (pinned)
+            meta += tr("  ·  pinned secret, saved to disk");
+        if (index.data(ClipboardListModel::RevealedRole).toBool())
+            meta += tr("  ·  revealed");
+    }
     const QFontMetrics metaMetrics(metaFont);
     const QRect metaRect(textArea.left(), titleRect.bottom() + 2, textArea.width(),
                          metaMetrics.height());

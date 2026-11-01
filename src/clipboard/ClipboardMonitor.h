@@ -20,6 +20,9 @@ public:
     // Writes text and suppresses the resulting change event
     void writeBack(const QString& text);
 
+    // clears the clipboard only while it still holds exactly this text
+    void clearIfHolds(const QString& text);
+
 signals:
     void textCaptured(const QString& text);
     void pausedChanged(bool paused);

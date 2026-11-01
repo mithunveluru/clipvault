@@ -39,6 +39,9 @@ public:
 
     bool remove(qint64 id);
 
+    // folds the wal into the main file so deleted rows leave no copy behind
+    bool checkpoint();
+
     // Pinned rows are only removed when includePinned
     bool clearAll(bool includePinned);
 
