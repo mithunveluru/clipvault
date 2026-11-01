@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 
 #include "../core/Logging.h"
+#include "../services/EphemeralStore.h"
 #include "../services/HistoryService.h"
 #include "../services/SearchService.h"
 #include "../services/SettingsService.h"
@@ -12,6 +13,9 @@
 #include <QCloseEvent>
 #include <QCursor>
 #include <QFrame>
+#include <QHash>
+#include <QHideEvent>
+#include <QShowEvent>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -43,6 +47,8 @@ MainWindow::MainWindow(HistoryService& history, SearchService& search, SettingsS
     setWindowFlag(Qt::WindowStaysOnTopHint, true);
     resize(470, 560);
     setMinimumSize(360, 320);
+    m_countdown.setInterval(1000);
+    connect(&m_countdown, &QTimer::timeout, this, &MainWindow::updateCountdown);
     buildUi();
     applyPaletteStyling();
     refresh();
@@ -142,6 +148,9 @@ void MainWindow::buildUi()
     auto* pinShortcut = new QShortcut(QKeySequence(QStringLiteral("Ctrl+P")), this);
     connect(pinShortcut, &QShortcut::activated, this, &MainWindow::togglePinCurrent);
 
+    auto* revealShortcut = new QShortcut(QKeySequence(QStringLiteral("Ctrl+R")), this);
+    connect(revealShortcut, &QShortcut::activated, this, &MainWindow::toggleRevealCurrent);
+
     auto* findShortcut = new QShortcut(QKeySequence::Find, this);
     connect(findShortcut, &QShortcut::activated, this, [this] {
         m_searchEdit->setFocus();
@@ -200,10 +209,19 @@ void MainWindow::refresh()
         return current ? current->id : -1;
     }();
 
-    m_model->setItems(m_search.search(m_searchEdit->text()));
+    // secrets in memory match on their kind label only so search never probes the text
+    const QString query = m_searchEdit->text().trimmed();
+    QList<ClipboardItem> items;
+    for (ClipboardItem& secret : m_history.ephemeral().items()) {
+        if (query.isEmpty() || secretKindLabel(secret.secretKind).contains(query, Qt::CaseInsensitive))
+            items.append(std::move(secret));
+    }
+    items.append(m_search.search(m_searchEdit->text()));
+    m_model->setItems(std::move(items));
+    updateCountdown();
 
     if (m_model->rowCount() > 0) {
-        const int restored = previousId >= 0 ? m_model->rowForId(previousId) : -1;
+        const int restored = previousId != -1 ? m_model->rowForId(previousId) : -1;
         const int row = restored >= 0 ? restored : 0;
         m_list->setCurrentIndex(m_model->index(row, 0));
     }
@@ -262,6 +280,28 @@ void MainWindow::flashStatus(const QString& message)
     });
 }
 
+void MainWindow::updateCountdown()
+{
+    QHash<qint64, int> remaining;
+    for (const ClipboardItem& item : m_model->items()) {
+        if (item.id < 0)
+            remaining.insert(item.id, m_history.ephemeral().remainingSeconds(item.id));
+    }
+    m_model->setRemaining(remaining);
+    if (remaining.isEmpty() || !isVisible())
+        m_countdown.stop();
+    else if (!m_countdown.isActive())
+        m_countdown.start();
+}
+
+void MainWindow::toggleRevealCurrent()
+{
+    const auto item = m_model->itemAt(m_list->currentIndex());
+    if (!item || item->secretKind.isEmpty())
+        return;
+    m_model->setRevealed(item->id, !m_model->isRevealed(item->id));
+}
+
 void MainWindow::moveSelection(int delta)
 {
     const int rows = m_model->rowCount();
@@ -278,6 +318,8 @@ void MainWindow::activateCurrent()
     const auto item = m_model->itemAt(m_list->currentIndex());
     if (!item)
         return;
+    if (!item->secretKind.isEmpty())
+        emit secretChosen(item->id, item->secretKind);
     emit itemChosen(item->content);
 }
 
@@ -437,6 +479,19 @@ void MainWindow::changeEvent(QEvent* event)
         applyPaletteStyling();
     }
     QWidget::changeEvent(event);
+}
+
+void MainWindow::showEvent(QShowEvent* event)
+{
+    QWidget::showEvent(event);
+    updateCountdown();
+}
+
+void MainWindow::hideEvent(QHideEvent* event)
+{
+    m_model->clearRevealed();
+    m_countdown.stop();
+    QWidget::hideEvent(event);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)

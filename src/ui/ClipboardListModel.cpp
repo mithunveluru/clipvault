@@ -2,6 +2,8 @@
 
 #include <QRegularExpression>
 
+#include <utility>
+
 namespace clipvault {
 
 QString previewOf(const QString& content)
@@ -46,6 +48,16 @@ QString relativeTime(const QDateTime& when, const QDateTime& now)
     return when.toLocalTime().toString(QStringLiteral("d MMM yyyy"));
 }
 
+QString secretKindLabel(const QString& kind)
+{
+    return QString(kind).replace(QLatin1Char('_'), QLatin1Char(' '));
+}
+
+QString secretMask()
+{
+    return QString(12, QChar(0x2022));
+}
+
 ClipboardListModel::ClipboardListModel(QObject* parent)
     : QAbstractListModel(parent)
 {
@@ -55,7 +67,43 @@ void ClipboardListModel::setItems(QList<ClipboardItem> items)
 {
     beginResetModel();
     m_items = std::move(items);
+    // a reveal never outlives the row it was made on
+    QSet<qint64> still;
+    for (const ClipboardItem& item : m_items) {
+        if (m_revealed.contains(item.id))
+            still.insert(item.id);
+    }
+    m_revealed = std::move(still);
     endResetModel();
+}
+
+void ClipboardListModel::setRevealed(qint64 id, bool revealed)
+{
+    const int row = rowForId(id);
+    if (row < 0 || m_items.at(row).secretKind.isEmpty())
+        return;
+    if (revealed)
+        m_revealed.insert(id);
+    else
+        m_revealed.remove(id);
+    emit dataChanged(index(row, 0), index(row, 0));
+}
+
+void ClipboardListModel::clearRevealed()
+{
+    const QSet<qint64> was = std::exchange(m_revealed, { });
+    for (const qint64 id : was) {
+        const int row = rowForId(id);
+        if (row >= 0)
+            emit dataChanged(index(row, 0), index(row, 0));
+    }
+}
+
+void ClipboardListModel::setRemaining(QHash<qint64, int> remaining)
+{
+    m_remaining = std::move(remaining);
+    if (!m_items.isEmpty())
+        emit dataChanged(index(0, 0), index(static_cast<int>(m_items.size()) - 1, 0), { RemainingRole });
 }
 
 std::optional<ClipboardItem> ClipboardListModel::itemAt(const QModelIndex& index) const
@@ -85,17 +133,22 @@ QVariant ClipboardListModel::data(const QModelIndex& index, int role) const
         return {};
 
     const ClipboardItem& item = m_items.at(index.row());
+    const bool masked = !item.secretKind.isEmpty() && !m_revealed.contains(item.id);
     switch (role) {
     case IdRole:        return item.id;
     case ContentRole:   return item.content;
     case PreviewRole:
-    case Qt::DisplayRole: return previewOf(item.content);
+    case Qt::DisplayRole: return masked ? secretMask() : previewOf(item.content);
+    case SecretKindRole: return item.secretKind;
+    case RemainingRole: return m_remaining.value(item.id, -1);
+    case RevealedRole:  return m_revealed.contains(item.id);
     case TypeRole:      return static_cast<int>(item.type);
     case PinnedRole:    return item.pinned;
     case CreatedAtRole: return item.createdAt;
     case Qt::AccessibleTextRole:
         return QStringLiteral("%1, %2, %3")
-            .arg(toString(item.type), previewOf(item.content),
+            .arg(masked ? tr("hidden %1").arg(secretKindLabel(item.secretKind)) : toString(item.type),
+                 masked ? tr("masked") : previewOf(item.content),
                  relativeTime(item.createdAt, QDateTime::currentDateTimeUtc()));
     default:
         return {};

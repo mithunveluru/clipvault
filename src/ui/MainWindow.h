@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QTimer>
 #include <QWidget>
 
 class QLabel;
@@ -45,6 +46,8 @@ public:
 signals:
     // The controller owns writing the choice to the clipboard
     void itemChosen(const QString& content);
+    // sent just before item chosen when the entry is a detected secret
+    void secretChosen(qint64 id, const QString& kind);
     void pauseToggleRequested();
     void quitRequested();
 
@@ -53,6 +56,8 @@ protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
     void changeEvent(QEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
+    void showEvent(QShowEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
 
 private:
     void buildUi();
@@ -63,6 +68,8 @@ private:
     void activateCurrent();
     void deleteCurrent();
     void togglePinCurrent();
+    void toggleRevealCurrent();
+    void updateCountdown();
     void positionNearPointer();
 
     HistoryService& m_history;
@@ -78,6 +85,7 @@ private:
     QLabel* m_countLabel = nullptr;
     QLabel* m_statusLabel = nullptr;
     QToolButton* m_settingsButton = nullptr;
+    QTimer m_countdown;
 
     QString m_hotkeyNote;
     QString m_databasePath;
