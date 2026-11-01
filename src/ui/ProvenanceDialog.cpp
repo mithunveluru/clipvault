@@ -38,6 +38,8 @@ ProvenanceDialog::ProvenanceDialog(
     for (std::size_t i = 0; i < rows.size(); ++i) {
         QLabel& field = m_fields.at(i);
         const QString& value = rows.at(i).second;
+        // titles and paths come from other apps so markup in them must stay text
+        field.setTextFormat(Qt::PlainText);
         field.setText(value.isEmpty() ? tr("Not recorded") : value);
         field.setWordWrap(true);
         field.setTextInteractionFlags(Qt::TextSelectableByMouse);
