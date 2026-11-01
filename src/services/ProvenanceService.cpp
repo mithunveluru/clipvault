@@ -116,9 +116,14 @@ bool ProvenanceService::clearProvenance()
     return m_history.clearProvenance();
 }
 
+bool ProvenanceService::canOpen(const QString& path)
+{
+    return path.startsWith(QLatin1Char('/'));
+}
+
 bool ProvenanceService::openSource(const QString& path) const
 {
-    return !path.isEmpty() && platform::openSourceLocation(path);
+    return canOpen(path) && platform::openSourceLocation(path);
 }
 
 bool ProvenanceService::canActivate(qint64 id) const

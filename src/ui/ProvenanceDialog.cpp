@@ -50,7 +50,7 @@ ProvenanceDialog::ProvenanceDialog(
     }
 
     QPushButton* openButton = m_buttons.addButton(tr("Open source"), QDialogButtonBox::ActionRole);
-    openButton->setEnabled(!item.source.path.isEmpty());
+    openButton->setEnabled(ProvenanceService::canOpen(item.source.path));
     connect(openButton, &QPushButton::clicked, this, [this, &provenance, path = item.source.path] {
         if (!provenance.openSource(path))
             emit statusMessage(tr("Could not open the source location."));

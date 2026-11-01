@@ -35,6 +35,8 @@ public:
 
     bool clearProvenance();
 
+    // only a local absolute path and never a url
+    [[nodiscard]] static bool canOpen(const QString& path);
     [[nodiscard]] bool openSource(const QString& path) const;
     // only clips captured in this run know which window to raise
     [[nodiscard]] bool canActivate(qint64 id) const;
