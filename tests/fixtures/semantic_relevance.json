@@ -1,0 +1,42 @@
+{
+  "clips": [
+    "ssh deploy@10.0.4.12 -p 2222",
+    "docker compose up -d --build",
+    "Meeting moved to Thursday 3pm in the large conference room",
+    "https://github.com/acme/webapp/pull/481",
+    "SELECT name, email FROM customers WHERE created_at > '2024-01-01';",
+    "Remember to buy milk, eggs and bread on the way home",
+    "The quarterly revenue grew 12 percent compared to last year",
+    "npm install --save-dev typescript eslint",
+    "Flight AA 2141 departs 7:45 from gate B12",
+    "Dear team, please review the attached contract before Friday",
+    "kubectl rollout restart deployment/api -n production",
+    "Recipe: preheat the oven to 180 degrees and bake for 25 minutes",
+    "Your package has shipped and will arrive on Monday",
+    "git commit -m 'fix login redirect loop'",
+    "Doctor appointment on the 14th at 9:30 am",
+    "The cat knocked a glass of water off the table",
+    "Invoice 2024-117 total due 450 EUR",
+    "How do I reset my router password?",
+    "Weather tomorrow: heavy rain and strong wind",
+    "Happy birthday! Hope you have a wonderful day"
+  ],
+  "queries": [
+    { "text": "grocery list", "relevant": [5] },
+    { "text": "start containers", "relevant": [1] },
+    { "text": "customer email sql", "relevant": [4] },
+    { "text": "rescheduled meeting", "relevant": [2] },
+    { "text": "plane departure", "relevant": [8] },
+    { "text": "cooking instructions", "relevant": [11] },
+    { "text": "delivery status", "relevant": [12] },
+    { "text": "sales growth", "relevant": [6] },
+    { "text": "restart kubernetes deployment", "relevant": [10] },
+    { "text": "rain forecast", "relevant": [18] },
+    { "text": "birthday wishes", "relevant": [19] },
+    { "text": "medical appointment", "relevant": [14] },
+    { "text": "pet accident", "relevant": [15] },
+    { "text": "amount owed on bill", "relevant": [16] },
+    { "text": "wifi password help", "relevant": [17] },
+    { "text": "contract review", "relevant": [9] }
+  ]
+}

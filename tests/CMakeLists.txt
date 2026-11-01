@@ -51,6 +51,14 @@ if(XCB_FOUND)
     set_tests_properties(test_x11_focus_tracker_adversarial PROPERTIES TIMEOUT 60)
 endif()
 
+if(CLIPVAULT_SEMANTIC)
+    add_executable(test_onnx_embedding test_onnx_embedding.cpp)
+    target_link_libraries(test_onnx_embedding PRIVATE clipvault_lib Qt6::Test)
+    target_compile_options(test_onnx_embedding PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_compile_definitions(test_onnx_embedding PRIVATE CLIPVAULT_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+    add_test(NAME test_onnx_embedding COMMAND test_onnx_embedding)
+endif()
+
 # release gate that needs strace and xvfb and is skipped nowhere in ci
 find_program(STRACE strace)
 find_program(XVFB_RUN xvfb-run)

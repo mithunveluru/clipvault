@@ -62,6 +62,7 @@ add_library(clipvault_lib STATIC
     src/core/SecretDetector.h
     src/core/SecureZero.h
     src/core/WordPieceTokenizer.h
+    src/core/EmbeddingProvider.h
     src/storage/Database.h
     src/storage/ClipboardRepository.h
     src/storage/SettingsRepository.h
@@ -71,6 +72,7 @@ add_library(clipvault_lib STATIC
     src/services/EphemeralStore.h
     src/services/SecretCopyWarner.h
     src/services/ProvenanceService.h
+    src/services/OnnxEmbeddingProvider.h
     src/clipboard/ClipboardMonitor.h
     src/platform/Autostart.h
     src/platform/SingleInstance.h
@@ -104,6 +106,7 @@ set(CLIPVAULT_STRICT_SOURCES
     src/services/ProvenanceService.cpp
     src/ui/ProvenanceDialog.cpp
     src/core/WordPieceTokenizer.cpp
+    src/services/OnnxEmbeddingProvider.cpp
 )
 
 # the x11 focus tracker is optional and the factory falls back without it
@@ -131,6 +134,13 @@ endif()
 
 if(CLIPVAULT_SEMANTIC)
     target_compile_definitions(clipvault_lib PUBLIC CLIPVAULT_SEMANTIC=1)
+    if(NOT ONNXRUNTIME_ROOT)
+        message(FATAL_ERROR "CLIPVAULT_SEMANTIC needs -DONNXRUNTIME_ROOT=<extracted onnxruntime release>")
+    endif()
+    find_library(ONNXRUNTIME_LIBRARY onnxruntime PATHS ${ONNXRUNTIME_ROOT}/lib NO_DEFAULT_PATH REQUIRED)
+    target_sources(clipvault_lib PRIVATE src/services/OnnxEmbeddingProvider.cpp)
+    target_include_directories(clipvault_lib SYSTEM PRIVATE ${ONNXRUNTIME_ROOT}/include)
+    target_link_libraries(clipvault_lib PUBLIC ${ONNXRUNTIME_LIBRARY})
 endif()
 
 qt_add_executable(clipvault src/main.cpp)
