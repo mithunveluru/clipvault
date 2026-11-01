@@ -64,6 +64,13 @@ public:
     QStringList provenanceBlocklist() const;
     void setProvenanceBlocklist(const QStringList& apps);
 
+    bool semanticEnabled() const;
+    void setSemanticEnabled(bool enabled);
+
+    // folder holding model.onnx and vocab.txt and empty until the user picks one
+    QString semanticModelDir() const;
+    void setSemanticModelDir(const QString& dir);
+
     static constexpr int kDefaultSecretTtlSeconds = 45;
     static constexpr int kMinSecretTtlSeconds = 10;
     static constexpr int kMaxSecretTtlSeconds = 5 * 60;

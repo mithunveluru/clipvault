@@ -13,6 +13,7 @@ private slots:
     void listsAreNormalised();
     void flagsPersistAcrossRestart();
     void historyStoresGivenSource();
+    void semanticSearchIsOffUntilChosen();
 };
 
 void TestSettings::defaultsAreTheSafeOption()
@@ -71,6 +72,18 @@ void TestSettings::historyStoresGivenSource()
     const auto item = fx.repository().findById(outcome.id);
     QCOMPARE(item->source.app, QStringLiteral("Terminal"));
     QCOMPARE(item->source.path, QStringLiteral("/home/u"));
+}
+
+void TestSettings::semanticSearchIsOffUntilChosen()
+{
+    test::Fixture fx;
+    QVERIFY(!fx.settings().semanticEnabled());
+    QVERIFY(fx.settings().semanticModelDir().isEmpty());
+    fx.settings().setSemanticEnabled(true);
+    fx.settings().setSemanticModelDir(QStringLiteral("/models/minilm"));
+    QVERIFY(fx.reopen());
+    QVERIFY(fx.settings().semanticEnabled());
+    QCOMPARE(fx.settings().semanticModelDir(), QStringLiteral("/models/minilm"));
 }
 
 QTEST_GUILESS_MAIN(TestSettings)
