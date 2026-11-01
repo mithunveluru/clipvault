@@ -159,16 +159,16 @@ the brief left open.
   `EphemeralStore` with a negative id. Its buffer is zeroed on expiry with
   `secureZero`, and the clipboard is cleared only if it still holds that text.
   After a pinned secret is unpinned or deleted, the WAL is checkpointed with
-  `TRUNCATE` so the old page copy goes too. A busy checkpoint is logged and
-  retried on the next one. Search never matches the text of a pinned secret,
+  `TRUNCATE` so the old page copy goes too. A busy checkpoint is logged, and the
+  old copy stays in the WAL until the next checkpoint succeeds. Search never matches the text of a pinned secret,
   so a guess cannot be confirmed through the search box.
 - **Detector tradeoffs.** Password-style and entropy rules run only on clips
   that are a single token. That keeps code and config files quiet, but it misses
   spaced forms such as `password: hunter2` inside longer text. Random base64
   such as encoded images can be flagged as high entropy. Scan limits count
   UTF-16 code units. Turning the radar on does not rescan old rows. The timer
-  is wall-clock driven, so a suspended laptop resumes the countdown where it
-  left off.
+  is monotonic and does not advance during suspend, so the countdown pauses
+  while the laptop sleeps.
 - **Search prefixes.** Plain words match only clip text. `app:` and `from:` are
   the same filter and match app id or class as a substring. `date:` uses local
   midnight boundaries, so a day across a DST change is 23 or 25 hours. Every
