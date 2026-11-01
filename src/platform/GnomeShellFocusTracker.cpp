@@ -12,6 +12,9 @@
 namespace clipvault::platform {
 namespace {
 
+// the same bound the x11 tracker puts on properties
+constexpr qsizetype kMaxFieldLength = 4096;
+
 QDBusMessage methodCall(const char* method)
 {
     return QDBusMessage::createMethodCall(QLatin1String(GnomeShellFocusTracker::kService),
@@ -34,8 +37,7 @@ GnomeShellFocusTracker::GnomeShellFocusTracker(QObject* parent)
 {
     QDBusConnection bus = QDBusConnection::sessionBus();
     if (!bus.connect(QLatin1String(kService), QLatin1String(kPath), QLatin1String(kInterface),
-            QStringLiteral("FocusChanged"), this,
-            SLOT(onFocusChanged(QString, QString, QString, qlonglong, qulonglong))))
+            QStringLiteral("FocusChanged"), this, SLOT(onFocusMessage(QDBusMessage))))
         qCWarning(lcFocus) << "could not subscribe to focus changes from the shell extension";
 
     // the shell restarts or the extension is toggled and the name comes and goes with it
@@ -50,20 +52,26 @@ GnomeShellFocusTracker::~GnomeShellFocusTracker() = default;
 
 void GnomeShellFocusTracker::query()
 {
-    QDBusConnection::sessionBus().callWithCallback(methodCall("GetFocus"), this,
-        SLOT(onFocusChanged(QString, QString, QString, qlonglong, qulonglong)),
-        SLOT(onCallFailed(QDBusError)));
+    QDBusConnection::sessionBus().callWithCallback(
+        methodCall("GetFocus"), this, SLOT(onFocusMessage(QDBusMessage)), SLOT(onCallFailed(QDBusError)));
 }
 
-void GnomeShellFocusTracker::onFocusChanged(
-    const QString& appId, const QString& wmClass, const QString& title, qlonglong pid, qulonglong windowId)
+void GnomeShellFocusTracker::onFocusMessage(const QDBusMessage& message)
 {
+    // anything that owns the name can send this so the shape is checked before use
+    if (message.signature() != QLatin1String("sssxt")) {
+        qCInfo(lcFocus) << "ignored a focus message with signature length" << message.signature().size();
+        return;
+    }
+    const QList<QVariant> args = message.arguments();
     WindowInfo window;
-    window.app = appId.isEmpty() ? wmClass : appId;
-    window.windowClass = wmClass;
-    window.title = title;
-    window.pid = pid;
-    window.windowId = windowId;
+    window.windowClass = args.at(1).toString().left(kMaxFieldLength);
+    window.app = args.at(0).toString().left(kMaxFieldLength);
+    if (window.app.isEmpty())
+        window.app = window.windowClass;
+    window.title = args.at(2).toString().left(kMaxFieldLength);
+    window.pid = args.at(3).toLongLong();
+    window.windowId = args.at(4).toULongLong();
     update(window);
 }
 

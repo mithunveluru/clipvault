@@ -5,6 +5,7 @@
 #include <memory>
 
 class QDBusError;
+class QDBusMessage;
 class QDBusServiceWatcher;
 
 namespace clipvault::platform {
@@ -30,8 +31,7 @@ public:
     [[nodiscard]] QString mechanismDescription() const override;
 
 private slots:
-    void onFocusChanged(const QString& appId, const QString& wmClass, const QString& title, qlonglong pid,
-        qulonglong windowId);
+    void onFocusMessage(const QDBusMessage& message);
     void onActivated(bool activated);
     void onCallFailed(const QDBusError& error);
 
