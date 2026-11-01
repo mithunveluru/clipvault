@@ -181,9 +181,10 @@ void TestSearchParse::searchFiltersByAppAndDate()
 
 void TestSearchParse::appQueryRoundTripsAwkwardNames()
 {
-    const QStringList apps { QStringLiteral("My \"Odd\" App"), QStringLiteral("\"lead"), QStringLiteral("trail\\"),
-        QStringLiteral("back\\slash \"q\""), QStringLiteral("a\\\"b"), QStringLiteral(" spaced "),
-        QStringLiteral("tab\there"), QStringLiteral("app:inner"), QStringLiteral("\""), QStringLiteral("\\") };
+    const QStringList apps { QStringLiteral("My \"Odd\" App"), QStringLiteral("\"lead"),
+        QStringLiteral("trail\\"), QStringLiteral("back\\slash \"q\""), QStringLiteral("a\\\"b"),
+        QStringLiteral(" spaced "), QStringLiteral("tab\there"), QStringLiteral("app:inner"),
+        QStringLiteral("\""), QStringLiteral("\\") };
     for (const QString& app : apps) {
         const SearchFilter filter = parse(SearchService::appQuery(app) + QStringLiteral(" needle"));
         QCOMPARE(filter.app, app);
