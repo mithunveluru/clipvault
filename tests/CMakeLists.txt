@@ -26,9 +26,11 @@ set(CLIPVAULT_STRICT_TESTS
     test_secret_adversarial
     test_source_location
     test_focus_tracker
+    test_source_location_adversarial
+    test_focus_tracker_adversarial
 )
 if(XCB_FOUND)
-    list(APPEND CLIPVAULT_STRICT_TESTS test_x11_focus_tracker)
+    list(APPEND CLIPVAULT_STRICT_TESTS test_x11_focus_tracker test_x11_focus_tracker_adversarial)
 endif()
 
 foreach(test IN LISTS CLIPVAULT_STRICT_TESTS)
@@ -40,6 +42,8 @@ foreach(test IN LISTS CLIPVAULT_STRICT_TESTS)
 endforeach()
 if(XCB_FOUND)
     target_link_libraries(test_x11_focus_tracker PRIVATE PkgConfig::XCB)
+    target_link_libraries(test_x11_focus_tracker_adversarial PRIVATE PkgConfig::XCB)
+    set_tests_properties(test_x11_focus_tracker_adversarial PROPERTIES TIMEOUT 60)
 endif()
 
 # release gate that needs strace and xvfb and is skipped nowhere in ci
