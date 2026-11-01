@@ -7,9 +7,11 @@
 #include "../services/SecretCopyWarner.h"
 #include "../services/ProvenanceService.h"
 #include "../services/SearchService.h"
+#include "../services/SemanticIndex.h"
 #include "../services/SettingsService.h"
 #include "../storage/ClipboardRepository.h"
 #include "../storage/Database.h"
+#include "../storage/EmbeddingRepository.h"
 #include "../storage/SettingsRepository.h"
 #include "../ui/MainWindow.h"
 
@@ -65,6 +67,8 @@ private:
     std::unique_ptr<SearchService> m_search;
     std::unique_ptr<platform::FocusTracker> m_focus;
     std::unique_ptr<ProvenanceService> m_provenance;
+    std::unique_ptr<EmbeddingRepository> m_embeddings;
+    std::unique_ptr<SemanticIndex> m_semantic;
     std::unique_ptr<ClipboardMonitor> m_monitor;
     std::unique_ptr<platform::GlobalHotkey> m_hotkey;
     std::unique_ptr<SecretCopyWarner> m_copyWarner;

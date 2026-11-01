@@ -47,7 +47,11 @@ bool ApplicationController::initialize(const QString& databasePath, QString* err
     m_monitor = std::make_unique<ClipboardMonitor>();
     m_hotkey = platform::createGlobalHotkey(m_instance);
     m_copyWarner = std::make_unique<SecretCopyWarner>(*m_focus, *m_settings);
+    m_embeddings = std::make_unique<EmbeddingRepository>(m_database->handle());
+    m_semantic = std::make_unique<SemanticIndex>(*m_embeddings, *m_repository);
     m_window = std::make_unique<MainWindow>(*m_history, *m_search, *m_settings);
+    m_window->setSemanticIndex(m_semantic.get());
+    connect(m_history.get(), &HistoryService::historyChanged, m_semantic.get(), &SemanticIndex::scheduleSync);
 
     m_window->setDatabasePath(m_database->path());
     m_window->setProvenanceService(m_provenance.get());
@@ -108,6 +112,7 @@ void ApplicationController::start(bool background)
 {
     m_history->runMaintenance();
     m_maintenanceTimer.start();
+    m_semantic->configure(m_settings->semanticEnabled(), m_settings->semanticModelDir());
 
     setPaused(m_settings->startPaused());
     m_startedInBackground = background;
@@ -206,6 +211,8 @@ void ApplicationController::onSettingChanged(const QString& key)
         m_history->applyRetentionChange();
     } else if (key == QLatin1String("max_items")) {
         m_history->runMaintenance();
+    } else if (key == QLatin1String("semantic_enabled") || key == QLatin1String("semantic_model_dir")) {
+        m_semantic->configure(m_settings->semanticEnabled(), m_settings->semanticModelDir());
     } else if (key == QLatin1String("hotkey")) {
         // Rewrites the existing binding so no removal step is needed
         registerHotkey();
@@ -241,6 +248,8 @@ void ApplicationController::shutdown()
     m_tray.reset();
     m_trayMenu.reset();
     m_window.reset();
+    m_semantic.reset();
+    m_embeddings.reset();
     m_hotkey.reset();
     m_copyWarner.reset();
     m_monitor.reset();
