@@ -129,7 +129,7 @@ the brief left open.
   timestamp and pin survives.
 - **secure_delete.** `PRAGMA secure_delete = ON` is set on every connection,
   so deleted clips are overwritten in place rather than left in free pages.
-  Its cost is measured in the benchmark table.
+  Its cost is recorded under "secure_delete cost" below.
 - **Refresh keeps provenance.** Re-copying text that is already stored updates
   the source only when the new source is non-empty. Copying from a blocklisted
   app therefore cannot wipe the record of where the text first came from.
@@ -153,15 +153,17 @@ the brief left open.
   10,000 rows of about 400 bytes, median of three, three interleaved pairs at
   load 0.4. Deleting one row costs 0.63–0.80 ms with it on and 0.47–0.64 ms
   with it off. Deleting 9,000 rows at once costs 31.6–37.0 ms on and
-  2.6–2.7 ms off, about 12 times slower. The app benchmark has no deletes and
-  shows no difference. Deletes are rare and small, so it stays on.
+  2.6–2.7 ms off, about 12 to 14 times slower. The app benchmark has no
+  deletes and shows no difference. Deletes are rare and small, so it stays on.
 - **Secrets never touch disk unless pinned.** A detected secret lives in
   `EphemeralStore` with a negative id. Its buffer is zeroed on expiry with
   `secureZero`, and the clipboard is cleared only if it still holds that text.
   After a pinned secret is unpinned or deleted, the WAL is checkpointed with
   `TRUNCATE` so the old page copy goes too. A busy checkpoint is logged, and the
-  old copy stays in the WAL until the next checkpoint succeeds. Search never matches the text of a pinned secret,
-  so a guess cannot be confirmed through the search box.
+  old copy stays in the WAL until the next checkpoint succeeds. Search never
+  matches the text of a pinned secret, so a guess cannot be confirmed through
+  the search box. The log records the detector rule and the length of a
+  secret, never its text or a hash.
 - **Detector tradeoffs.** Password-style and entropy rules run only on clips
   that are a single token. That keeps code and config files quiet, but it misses
   spaced forms such as `password: hunter2` inside longer text. Random base64
@@ -176,15 +178,19 @@ the brief left open.
 - **Blocklist.** Entries are lowercased and matched as substrings of app id or
   class. A broad entry blocks more than intended rather than less.
 - **Titles.** Window titles are recorded only with the extra toggle. Turning it
-  off sets every stored title to NULL straight away. Titles, paths and app
-  names are never logged.
-- **Opening a source.** Nothing runs through a shell. A directory opens as
+  off sets every stored title to NULL straight away; old copies can stay in
+  the WAL until the next checkpoint. A file name in an editor title is still
+  parsed into a path while titles are off, and only the path is kept. Titles,
+  paths and app names are never logged.
+- **Opening a source.** No shell command is ever built. A directory opens as
   itself. A regular file opens directly only when its MIME type inherits
-  text/plain, it is not executable, it is not a desktop entry or script, and
-  its suffix is not desktop, jar, flatpakref, flatpakrepo, exe or msi. Anything
+  text/plain, it is not executable, it is not a desktop entry or shell script,
+  and its suffix is not desktop, jar, flatpakref, flatpakrepo, exe or msi. Anything
   else opens its folder. Paths are canonicalised, and anything under /proc,
   /sys or /dev is refused, including through a symlink. Paths from window
-  titles reject file URLs and must stay inside their project directory. Web
+  titles reject file URLs, and relative names must stay inside their project
+  directory; absolute paths in titles are accepted outside /proc, /sys and
+  /dev. Web
   addresses are shown but never opened.
 - **Raising a window.** Window ids are held in memory, per item, for clips
   captured in the current run. They are never stored, so older clips cannot
@@ -192,8 +198,9 @@ the brief left open.
   came up.
 - **Focus on X11.** The X11 tracker uses its own xcb connection. It drains at
   most 256 events per wakeup and collapses refreshes into one per event loop
-  pass, so a window that spams title changes cannot starve the app. It never
-  changes the root window's event mask. Startup still makes one blocking call
+  pass, so a window that spams title changes cannot starve the app. It sets
+  the root window's event mask once on its own connection and never clears or
+  replaces it. Startup still makes one blocking call
   to check whether the GNOME extension is on the bus.
 - **GNOME extension privacy.** The extension answers Subscribe, GetFocus and
   Activate only when the caller's executable, read from /proc through its bus

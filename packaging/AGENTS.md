@@ -20,6 +20,7 @@
 ## Verification
 
 - test_focus_tracker drives the tracker against a fake bus service; manual checks use a nested gnome-shell under xvfb with a temporary home and dbus-run-session
+
 ## Child DOX Index
 
 - none
