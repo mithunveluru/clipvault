@@ -102,12 +102,13 @@ void ProvenanceService::noteCopiedBack(qint64 id)
 
 void ProvenanceService::onFocusChanged(const platform::WindowInfo& window)
 {
-    if (!m_pendingCopyId || !sameWindow(window, m_tracker.lastForeignWindow()))
+    const std::optional<qint64> pending = m_pendingCopyId;
+    if (!pending || !sameWindow(window, m_tracker.lastForeignWindow()))
         return;
-    const qint64 id = *std::exchange(m_pendingCopyId, std::nullopt);
+    m_pendingCopyId.reset();
     if (!isRecordable(window))
         return;
-    m_history.setCopiedInto(id, displayApp(window));
+    m_history.setCopiedInto(*pending, displayApp(window));
 }
 
 bool ProvenanceService::clearProvenance()
