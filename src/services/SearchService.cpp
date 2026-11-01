@@ -1,6 +1,7 @@
 #include "SearchService.h"
 
 #include <QRegularExpression>
+#include <QSet>
 #include <QStringList>
 
 namespace clipvault {
@@ -102,6 +103,35 @@ QString SearchService::appQuery(const QString& app)
     QString escaped = app;
     escaped.replace(QLatin1Char('\\'), QStringLiteral("\\\\")).replace(QLatin1Char('"'), QStringLiteral("\\\""));
     return QStringLiteral("app:\"%1\"").arg(escaped);
+}
+
+QList<ClipboardItem> SearchService::searchBlended(
+    const QString& query, const QList<qint64>& semanticIds, int limit) const
+{
+    const int cap = qBound(1, limit, 5000);
+    QList<ClipboardItem> results = search(query, cap);
+    QSet<qint64> seen;
+    for (const ClipboardItem& item : results)
+        seen.insert(item.id);
+    for (const qint64 id : semanticIds) {
+        if (results.size() >= cap)
+            break;
+        if (seen.contains(id))
+            continue;
+        std::optional<ClipboardItem> item = m_repository.findById(id);
+        // pinned secrets stay masked so a meaning match must not surface them either
+        if (!item || !item->secretKind.isEmpty())
+            continue;
+        seen.insert(id);
+        results.append(std::move(*item));
+    }
+    return results;
+}
+
+// prefixes such as app or title will be stripped here once the query parser exists
+QString SearchService::semanticText(const QString& query)
+{
+    return query.trimmed();
 }
 
 } // namespace clipvault

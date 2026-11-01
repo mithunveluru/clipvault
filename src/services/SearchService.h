@@ -25,6 +25,13 @@ public:
     // query text that filters by one app quoting names with spaces
     [[nodiscard]] static QString appQuery(const QString& app);
 
+    // lexical results in their usual order then semantic only ids in the given order
+    [[nodiscard]] QList<ClipboardItem> searchBlended(
+        const QString& query, const QList<qint64>& semanticIds, int limit = kDefaultLimit) const;
+
+    // the free text part of a query that semantic matching sees
+    [[nodiscard]] static QString semanticText(const QString& query);
+
     // Quick pick surface not an archive browser
     static constexpr int kDefaultLimit = 200;
 

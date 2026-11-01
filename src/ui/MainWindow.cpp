@@ -5,6 +5,7 @@
 #include "../services/HistoryService.h"
 #include "../services/ProvenanceService.h"
 #include "../services/SearchService.h"
+#include "../services/SemanticIndex.h"
 #include "../services/SettingsService.h"
 #include "ClipboardItemDelegate.h"
 #include "ClipboardListModel.h"
@@ -240,7 +241,16 @@ void MainWindow::refresh()
         if (secretMatches(secret, filter))
             items.append(std::move(secret));
     }
-    items.append(m_search.search(m_searchEdit->text()));
+    const QString semanticText = SearchService::semanticText(m_searchEdit->text());
+    const bool semanticReady = m_semantic && m_semantic->isReady();
+    if (semanticText != m_semanticQuery) {
+        m_semanticIds.clear();
+        // left empty while the index is not ready so a later refresh asks again
+        m_semanticQuery = semanticReady ? semanticText : QString();
+        if (!m_semanticQuery.isEmpty())
+            m_semantic->query(m_semanticQuery);
+    }
+    items.append(m_search.searchBlended(m_searchEdit->text(), semanticReady ? m_semanticIds : QList<qint64>()));
     m_model->setItems(std::move(items));
     updateCountdown();
 
@@ -377,6 +387,17 @@ void MainWindow::togglePinCurrent()
         m_list->setCurrentIndex(m_model->index(row, 0));
         m_list->scrollTo(m_model->index(row, 0), QAbstractItemView::EnsureVisible);
     }
+}
+
+void MainWindow::setSemanticIndex(SemanticIndex* index)
+{
+    m_semantic = index;
+    connect(index, &SemanticIndex::queryReady, this, [this](const QString& text, const QList<qint64>& ids) {
+        if (text != m_semanticQuery || ids.isEmpty())
+            return;
+        m_semanticIds = ids;
+        refresh();
+    });
 }
 
 void MainWindow::openSettings()
