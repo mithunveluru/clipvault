@@ -143,6 +143,12 @@ QVariant ClipboardListModel::data(const QModelIndex& index, int role) const
 
     const ClipboardItem& item = m_items.at(index.row());
     const bool masked = !item.secretKind.isEmpty() && !m_revealed.contains(item.id);
+    // path and title can carry the secret itself so only the app shows while masked
+    Provenance source = item.source;
+    if (masked) {
+        source.path.clear();
+        source.title.clear();
+    }
     switch (role) {
     case IdRole:        return item.id;
     case ContentRole:   return item.content;
@@ -154,9 +160,9 @@ QVariant ClipboardListModel::data(const QModelIndex& index, int role) const
     case TypeRole:      return static_cast<int>(item.type);
     case PinnedRole:    return item.pinned;
     case CreatedAtRole: return item.createdAt;
-    case SourceRole:    return sourceLineOf(item.source);
-    case SourceAppRole: return item.source.app.isEmpty() ? item.source.windowClass : item.source.app;
-    case SourceDetailRole: return item.source.path.isEmpty() ? item.source.title : item.source.path;
+    case SourceRole:    return sourceLineOf(source);
+    case SourceAppRole: return source.app.isEmpty() ? source.windowClass : source.app;
+    case SourceDetailRole: return source.path.isEmpty() ? source.title : source.path;
     case Qt::AccessibleTextRole:
         return QStringLiteral("%1, %2, %3")
             .arg(masked ? tr("hidden %1").arg(secretKindLabel(item.secretKind)) : toString(item.type),

@@ -17,7 +17,9 @@ class ProvenanceService;
 class ProvenanceDialog : public QDialog {
     Q_OBJECT
 public:
-    ProvenanceDialog(const ClipboardItem& item, ProvenanceService& provenance, QWidget* parent = nullptr);
+    // a secret that is not revealed shows neither path nor title
+    ProvenanceDialog(const ClipboardItem& item, ProvenanceService& provenance, bool revealed = false,
+        QWidget* parent = nullptr);
 
 signals:
     // content free message for the main window footer

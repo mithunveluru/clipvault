@@ -69,7 +69,7 @@ signals:
     void captureRejected(const QString& reason);
 
 private:
-    AddOutcome addSecret(const QString& content, const QString& kind, const Provenance& source);
+    AddOutcome addSecret(const QString& content, const QString& kind, Provenance source);
     [[nodiscard]] QList<ClipboardItem> pinnedSecrets() const;
     bool pinSecret(qint64 id);
     bool unpinSecret(const ClipboardItem& item);

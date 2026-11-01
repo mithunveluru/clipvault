@@ -398,7 +398,7 @@ void MainWindow::showSourceDetails()
     const auto item = m_model->itemAt(m_list->currentIndex());
     if (!item || !m_provenance)
         return;
-    ProvenanceDialog dialog(*item, *m_provenance, this);
+    ProvenanceDialog dialog(*item, *m_provenance, m_model->isRevealed(item->id), this);
     connect(&dialog, &ProvenanceDialog::statusMessage, this, &MainWindow::flashStatus);
     dialog.exec();
 }

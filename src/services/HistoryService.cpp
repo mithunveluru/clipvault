@@ -88,8 +88,13 @@ HistoryService::AddOutcome HistoryService::add(const QString& content, const Pro
 }
 
 HistoryService::AddOutcome HistoryService::addSecret(const QString& content, const QString& kind,
-                                                     const Provenance& source)
+                                                     Provenance source)
 {
+    // a url clip is its own path so keeping it would show the secret on the source line
+    const QString trimmed = content.trimmed();
+    if (!source.path.isEmpty() && (source.path.contains(trimmed) || content.contains(source.path)))
+        source.path.clear();
+
     // compared directly because hashing would leave a guessable fingerprint
     for (const ClipboardItem& stored : pinnedSecrets()) {
         if (stored.content == content) {

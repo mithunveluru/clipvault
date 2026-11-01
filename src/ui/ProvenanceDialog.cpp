@@ -9,7 +9,8 @@
 
 namespace clipvault {
 
-ProvenanceDialog::ProvenanceDialog(const ClipboardItem& item, ProvenanceService& provenance, QWidget* parent)
+ProvenanceDialog::ProvenanceDialog(
+    const ClipboardItem& shown, ProvenanceService& provenance, bool revealed, QWidget* parent)
     : QDialog(parent)
     , m_form(this)
     , m_buttons(QDialogButtonBox::Close)
@@ -17,6 +18,14 @@ ProvenanceDialog::ProvenanceDialog(const ClipboardItem& item, ProvenanceService&
     setWindowTitle(tr("Clip source"));
     setModal(true);
     setMinimumWidth(420);
+
+    // the path of a url clip is the clip itself so a masked secret keeps both hidden
+    const bool masked = !shown.secretKind.isEmpty() && !revealed;
+    ClipboardItem item = shown;
+    if (masked) {
+        item.source.path.clear();
+        item.source.title.clear();
+    }
 
     const std::array<std::pair<QString, QString>, 6> rows { {
         { tr("Application"), item.source.app },
@@ -34,6 +43,10 @@ ProvenanceDialog::ProvenanceDialog(const ClipboardItem& item, ProvenanceService&
         field.setTextInteractionFlags(Qt::TextSelectableByMouse);
         field.setEnabled(!value.isEmpty());
         m_form.addRow(rows.at(i).first, &field);
+    }
+    if (masked) {
+        m_fields.at(2).setText(tr("Hidden while the secret is masked"));
+        m_fields.at(3).setText(tr("Hidden while the secret is masked"));
     }
 
     QPushButton* openButton = m_buttons.addButton(tr("Open source"), QDialogButtonBox::ActionRole);
