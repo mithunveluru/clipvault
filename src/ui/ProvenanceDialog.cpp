@@ -57,9 +57,11 @@ ProvenanceDialog::ProvenanceDialog(
     });
 
     QPushButton* activateButton = m_buttons.addButton(tr("Activate window"), QDialogButtonBox::ActionRole);
-    activateButton->setEnabled(!item.source.app.isEmpty() || !item.source.windowClass.isEmpty());
-    connect(activateButton, &QPushButton::clicked, this, [this, &provenance, source = item.source] {
-        if (!provenance.activateSource(source))
+    activateButton->setEnabled(provenance.canActivate(item.id));
+    if (!activateButton->isEnabled())
+        activateButton->setToolTip(tr("Only clips copied since ClipVault started know their window."));
+    connect(activateButton, &QPushButton::clicked, this, [this, &provenance, id = item.id, source = item.source] {
+        if (!provenance.activateSource(id, source))
             emit statusMessage(tr("This desktop does not let ClipVault raise that window."));
     });
 

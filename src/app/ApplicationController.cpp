@@ -54,7 +54,7 @@ bool ApplicationController::initialize(const QString& databasePath, QString* err
     m_window->setHotkeyNote(m_hotkey->mechanismDescription());
 
     connect(m_monitor.get(), &ClipboardMonitor::textCaptured, this,
-            [this](const QString& text) { m_history->add(text, m_provenance->sourceFor(text)); });
+            [this](const QString& text) { m_provenance->capture(text); });
     connect(m_window.get(), &MainWindow::itemCopiedOut, m_provenance.get(),
             &ProvenanceService::noteCopiedBack);
 
