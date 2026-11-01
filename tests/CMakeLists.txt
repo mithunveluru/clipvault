@@ -18,6 +18,7 @@ set(CLIPVAULT_STRICT_TESTS
     test_repository_fields
     test_settings
     test_secret_detector
+    test_ephemeral_store
 )
 
 foreach(test IN LISTS CLIPVAULT_STRICT_TESTS)
