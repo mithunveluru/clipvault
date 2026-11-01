@@ -35,6 +35,7 @@ set(CLIPVAULT_STRICT_TESTS
     test_wordpiece_tokenizer
     test_embedding_repository
     test_embedding_engine
+    test_semantic_index
 )
 if(XCB_FOUND)
     list(APPEND CLIPVAULT_STRICT_TESTS test_x11_focus_tracker test_x11_focus_tracker_adversarial)
