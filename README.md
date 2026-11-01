@@ -216,9 +216,8 @@ secret.
 
 ClipVault can record where each entry came from: the app id and window class,
 a file or folder path when one can be worked out, and, for saved entries, the
-app it was pasted
-into. Settings → Privacy says exactly what is recorded, and has a
-blocklist and a "Clear source information" action.
+app it was pasted into. Settings → Privacy says exactly what is recorded, and
+has a blocklist and a "Clear source information" action.
 
 - **Window titles are off by default.** Turning them on records the title of
   the source window. Turning them off again deletes every stored title.
