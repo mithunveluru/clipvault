@@ -5,6 +5,7 @@
 #include <QCoreApplication>
 #include <QScopedPointer>
 #include <QSocketNotifier>
+#include <QTimer>
 
 #include <xcb/xcb.h>
 
@@ -22,6 +23,9 @@ template <typename T> using Reply = std::unique_ptr<T, FreeDeleter>;
 
 // four kilobytes is far beyond any real title or class
 constexpr std::uint32_t kMaxPropertyWords = 1024;
+// bounds the work done per wakeup of the event loop
+constexpr int kMaxEventsPerDrain = 256;
+constexpr int kMaxRefreshesPerWakeup = 4;
 // the top bit marks events sent by another client
 constexpr std::uint8_t kEventTypeMask = 0x7f;
 // ewmh source indication for a pager which window managers honour without focus stealing checks
@@ -111,10 +115,13 @@ X11FocusTracker::X11FocusTracker(Connection connection, int screen, QObject* par
 
 X11FocusTracker::~X11FocusTracker() = default;
 
-bool X11FocusTracker::drainEvents()
+X11FocusTracker::Drain X11FocusTracker::drainEvents()
 {
-    bool changed = false;
-    while (const Reply<xcb_generic_event_t> event { xcb_poll_for_event(m_connection.get()) }) {
+    Drain drain;
+    for (int i = 0; i < kMaxEventsPerDrain; ++i) {
+        const Reply<xcb_generic_event_t> event { xcb_poll_for_event(m_connection.get()) };
+        if (!event)
+            return drain;
         // errors for windows that vanished arrive here as type zero and are ignored
         if ((event->response_type & kEventTypeMask) != XCB_PROPERTY_NOTIFY)
             continue;
@@ -123,16 +130,34 @@ bool X11FocusTracker::drainEvents()
         const bool watchedRenamed = notify->window == m_watched
             && (notify->atom == m_netWmName || notify->atom == XCB_ATOM_WM_NAME
                 || notify->atom == XCB_ATOM_WM_CLASS);
-        changed = changed || activeMoved || watchedRenamed;
+        drain.changed = drain.changed || activeMoved || watchedRenamed;
     }
-    return changed;
+    drain.more = true;
+    return drain;
 }
 
 void X11FocusTracker::readEvents()
 {
+    m_drainQueued = false;
     // replies read during refresh can queue further events that the notifier never reports
-    while (drainEvents())
-        refresh();
+    for (int round = 0; round < kMaxRefreshesPerWakeup; ++round) {
+        const Drain drain = drainEvents();
+        // one refresh covers every change in the batch
+        if (drain.changed)
+            refresh();
+        else if (!drain.more)
+            return;
+    }
+    // a client spamming properties must not starve the event loop so the rest waits for the next pass
+    scheduleDrain();
+}
+
+void X11FocusTracker::scheduleDrain()
+{
+    if (m_drainQueued)
+        return;
+    m_drainQueued = true;
+    QTimer::singleShot(0, this, &X11FocusTracker::readEvents);
 }
 
 std::uint32_t X11FocusTracker::activeWindow() const

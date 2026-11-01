@@ -31,7 +31,12 @@ public:
     [[nodiscard]] QString mechanismDescription() const override;
 
 private:
-    [[nodiscard]] bool drainEvents();
+    struct Drain {
+        bool changed = false;
+        bool more = false;
+    };
+    [[nodiscard]] Drain drainEvents();
+    void scheduleDrain();
     void readEvents();
     void refresh();
     [[nodiscard]] std::uint32_t activeWindow() const;
@@ -41,6 +46,7 @@ private:
     Connection m_connection;
     // declared after the connection so it goes away before the socket closes
     std::unique_ptr<QSocketNotifier> m_notifier;
+    bool m_drainQueued = false;
     std::uint32_t m_root = 0;
     std::uint32_t m_watched = 0;
     std::uint32_t m_netActiveWindow = 0;
