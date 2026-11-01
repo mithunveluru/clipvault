@@ -52,6 +52,9 @@ GnomeShellFocusTracker::~GnomeShellFocusTracker() = default;
 
 void GnomeShellFocusTracker::query()
 {
+    // the extension sends focus changes only to subscribers so this repeats whenever the name appears
+    QDBusConnection::sessionBus().callWithCallback(
+        methodCall("Subscribe"), this, SLOT(onSubscribed()), SLOT(onCallFailed(QDBusError)));
     QDBusConnection::sessionBus().callWithCallback(
         methodCall("GetFocus"), this, SLOT(onFocusMessage(QDBusMessage)), SLOT(onCallFailed(QDBusError)));
 }
@@ -94,6 +97,11 @@ bool GnomeShellFocusTracker::activate(const WindowInfo& window)
     // async so a stalled shell cannot freeze the window and the reply only feeds the log
     return QDBusConnection::sessionBus().callWithCallback(
         message, this, SLOT(onActivated(bool)), SLOT(onCallFailed(QDBusError)));
+}
+
+void GnomeShellFocusTracker::onSubscribed()
+{
+    qCDebug(lcFocus) << "subscribed to focus changes from the shell extension";
 }
 
 void GnomeShellFocusTracker::onActivated(bool activated)

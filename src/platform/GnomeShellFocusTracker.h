@@ -32,6 +32,7 @@ public:
 
 private slots:
     void onFocusMessage(const QDBusMessage& message);
+    void onSubscribed();
     void onActivated(bool activated);
     void onCallFailed(const QDBusError& error);
 

@@ -4,6 +4,7 @@
 #include <QCoreApplication>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
+#include <QDBusMessage>
 #include <QProcess>
 #include <QSignalSpy>
 #include <QTest>
@@ -24,10 +25,28 @@ public:
     qlonglong pid = 4242;
     qulonglong windowId = 77;
     QList<qulonglong> activated;
+    QStringList subscribers;
+    QDBusConnection* bus = nullptr;
 
-    void announce() { emit FocusChanged(appId, wmClass, title, pid, windowId); }
+    // like the extension this goes only to subscribers and never as a broadcast
+    void announce()
+    {
+        for (const QString& name : subscribers) {
+            QDBusMessage signal
+                = QDBusMessage::createTargetedSignal(name, QLatin1String(GnomeShellFocusTracker::kPath),
+                    QLatin1String(GnomeShellFocusTracker::kInterface), QStringLiteral("FocusChanged"));
+            signal << appId << wmClass << title << pid << windowId;
+            bus->send(signal);
+        }
+    }
 
 public slots:
+    // the real extension also checks the caller binary which a fake cannot
+    void Subscribe(const QDBusMessage& message)
+    {
+        if (!subscribers.contains(message.service()))
+            subscribers << message.service();
+    }
     QString GetFocus(QString& outClass, QString& outTitle, qlonglong& outPid, qulonglong& outId)
     {
         outClass = wmClass;
@@ -61,6 +80,7 @@ private slots:
     void activateCallsTheExtension();
     void factoryPrefersTheExtension();
     void extensionLeavingClearsFocus();
+    void subscribesAgainWhenTheNameReturns();
 
 private:
     bool startShell();
@@ -86,6 +106,7 @@ void TestFocusTracker::initTestCase()
 
     m_shellBus = QDBusConnection::connectToBus(QString::fromUtf8(address), QStringLiteral("fake-shell"));
     QVERIFY(m_shellBus.isConnected());
+    m_shell.bus = &m_shellBus;
     QVERIFY(m_shellBus.registerObject(QLatin1String(GnomeShellFocusTracker::kPath), &m_shell,
         QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals));
 }
@@ -194,6 +215,23 @@ void TestFocusTracker::extensionLeavingClearsFocus()
     QTRY_VERIFY(!tracker.current().isValid());
     // the last foreign window survives so paste back still knows where to go
     QVERIFY(tracker.lastForeignWindow().isValid());
+}
+
+void TestFocusTracker::subscribesAgainWhenTheNameReturns()
+{
+    QVERIFY(startShell());
+    m_shell.subscribers.clear();
+    GnomeShellFocusTracker tracker;
+    const QString self = QDBusConnection::sessionBus().baseService();
+    QTRY_VERIFY(m_shell.subscribers.contains(self));
+    stopShell();
+    m_shell.subscribers.clear();
+    QVERIFY(startShell());
+    QTRY_VERIFY(m_shell.subscribers.contains(self));
+    m_shell.windowId = 99;
+    m_shell.announce();
+    QTRY_COMPARE(tracker.current().windowId, 99ULL);
+    stopShell();
 }
 
 QTEST_GUILESS_MAIN(TestFocusTracker)
