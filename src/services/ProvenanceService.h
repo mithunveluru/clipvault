@@ -9,6 +9,7 @@
 #include <QString>
 
 #include <functional>
+#include <optional>
 
 namespace clipvault {
 
@@ -56,7 +57,7 @@ private:
     const SettingsService& m_settings;
     HistoryService& m_history;
     PathResolver m_resolvePath;
-    qint64 m_pendingCopyId = -1;
+    std::optional<qint64> m_pendingCopyId;
     // item id to tracker window id seen this run and never stored or logged
     QHash<qint64, quint64> m_liveWindows;
 };

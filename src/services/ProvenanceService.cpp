@@ -96,14 +96,15 @@ Provenance ProvenanceService::sourceOf(const platform::WindowInfo& window, const
 
 void ProvenanceService::noteCopiedBack(qint64 id)
 {
-    m_pendingCopyId = id;
+    // secrets kept only in memory have negative ids and their paste target is not kept
+    m_pendingCopyId = id >= 0 ? std::optional(id) : std::nullopt;
 }
 
 void ProvenanceService::onFocusChanged(const platform::WindowInfo& window)
 {
-    if (m_pendingCopyId < 0 || !sameWindow(window, m_tracker.lastForeignWindow()))
+    if (!m_pendingCopyId || !sameWindow(window, m_tracker.lastForeignWindow()))
         return;
-    const qint64 id = std::exchange(m_pendingCopyId, -1);
+    const qint64 id = *std::exchange(m_pendingCopyId, std::nullopt);
     if (!isRecordable(window))
         return;
     m_history.setCopiedInto(id, displayApp(window));
@@ -111,7 +112,7 @@ void ProvenanceService::onFocusChanged(const platform::WindowInfo& window)
 
 bool ProvenanceService::clearProvenance()
 {
-    m_pendingCopyId = -1;
+    m_pendingCopyId.reset();
     m_liveWindows.clear();
     return m_history.clearProvenance();
 }

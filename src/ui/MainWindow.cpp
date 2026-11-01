@@ -234,10 +234,10 @@ void MainWindow::refresh()
     }();
 
     // secrets in memory match on their kind label only so search never probes the text
-    const QString query = m_searchEdit->text().trimmed();
+    const SearchFilter filter = SearchService::parse(m_searchEdit->text(), QDateTime::currentDateTime());
     QList<ClipboardItem> items;
     for (ClipboardItem& secret : m_history.ephemeral().items()) {
-        if (query.isEmpty() || secretKindLabel(secret.secretKind).contains(query, Qt::CaseInsensitive))
+        if (secretMatches(secret, filter))
             items.append(std::move(secret));
     }
     items.append(m_search.search(m_searchEdit->text()));

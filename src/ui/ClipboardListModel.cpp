@@ -58,6 +58,24 @@ QString secretMask()
     return QString(12, QChar(0x2022));
 }
 
+bool secretMatches(const ClipboardItem& secret, const SearchFilter& filter)
+{
+    // trimmed like the repository does for saved clips
+    const QString text = filter.text.trimmed();
+    if (!text.isEmpty() && !secretKindLabel(secret.secretKind).contains(text, Qt::CaseInsensitive))
+        return false;
+    const QString app = filter.app.trimmed();
+    if (!app.isEmpty() && !secret.source.app.contains(app, Qt::CaseInsensitive)
+        && !secret.source.windowClass.contains(app, Qt::CaseInsensitive))
+        return false;
+    const QString title = filter.title.trimmed();
+    if (!title.isEmpty() && !secret.source.title.contains(title, Qt::CaseInsensitive))
+        return false;
+    if (filter.since && secret.createdAt < *filter.since)
+        return false;
+    return !filter.until || secret.createdAt < *filter.until;
+}
+
 QString sourceLineOf(const Provenance& source)
 {
     const QString app = source.app.isEmpty() ? source.windowClass : source.app;

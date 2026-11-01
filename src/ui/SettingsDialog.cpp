@@ -205,7 +205,8 @@ void SettingsDialog::addProvenanceSection(QVBoxLayout* layout, QWidget* parent)
            "directory, a file named in the editor title, or the clip itself when it is a web "
            "address, which is shown for reference and never opened); the window title, only when “Also record window titles” is on, and "
            "turning that off removes every stored title; and "
-           "the app you pasted into when you copy an item back out of ClipVault. Nothing is "
+           "the app you pasted into when you copy a saved item back out of ClipVault, which is not "
+           "recorded for secrets kept only in memory. Nothing is "
            "recorded for the apps listed below."),
         parent);
     recorded->setWordWrap(true);

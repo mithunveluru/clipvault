@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../core/ClipboardItem.h"
+#include "../core/SearchFilter.h"
 
 #include <QAbstractListModel>
 #include <QHash>
@@ -68,5 +69,8 @@ QString secretKindLabel(const QString& kind);
 
 // fixed width so the mask never hints at the length
 QString secretMask();
+
+// an in memory secret against a parsed query where plain text only meets the kind label
+bool secretMatches(const ClipboardItem& secret, const SearchFilter& filter);
 
 } // namespace clipvault
