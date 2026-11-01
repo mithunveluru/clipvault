@@ -108,3 +108,44 @@ list, the search scan or the row painter.
 
 Clipboard contents are never logged. Diagnostics carry a length and a hash
 salted per run, so a short secret cannot be confirmed by guessing.
+
+## Decisions for secret radar, provenance and semantic search
+
+These record where the work differs from the original brief or makes a call
+the brief left open.
+
+- **Commit style.** The brief asked for conventional commits. A later standing
+  rule from the owner replaces that: lowercase messages with no punctuation and
+  no type prefix. The standing rule wins.
+- **Schema.** Version 2 adds nullable `secret_kind`, `source_app`,
+  `source_class`, `source_title`, `source_path` and `copied_into` columns to
+  `clipboard_items`. Version 3 adds `clip_embeddings`, keyed by item id with
+  `ON DELETE CASCADE`. Version 3 is created even when `CLIPVAULT_SEMANTIC` is
+  off, so a database never forks by build option. There are no new indexes.
+  Filtering by app or title is a scan, just like plain search.
+- **Migration fixture.** `tests/fixtures/v1.db` was written with the exact
+  version 1 DDL copied from `Database.cpp` and holds four rows and three
+  settings. `test_migration` upgrades a copy and checks that every row,
+  timestamp and pin survives.
+- **secure_delete.** `PRAGMA secure_delete = ON` is set on every connection,
+  so deleted clips are overwritten in place rather than left in free pages.
+  Its cost is measured in the benchmark table.
+- **Refresh keeps provenance.** Re-copying text that is already stored updates
+  the source only when the new source is non-empty. Copying from a blocklisted
+  app therefore cannot wipe the record of where the text first came from.
+- **Benchmarks.** Absolute figures depend on machine load. Before and after
+  numbers are compared on the same machine as the median of five runs pinned
+  to one core (`tools/bench.sh`), with logging silenced in the bench binary.
+  The two builds are interleaved when load changes.
+- **Strict warnings.** Sources added after 1.0 are listed in
+  `CLIPVAULT_STRICT_SOURCES` and `CLIPVAULT_STRICT_TESTS` and build with
+  `-Werror`. Existing files keep their old flags and are not reformatted. CI
+  runs clang-format and clang-tidy only on files a pull request adds.
+- **No network gate.** `tools/check_no_network.sh` (ctest `no_network`) fails
+  if `src` references an internet socket API. It also fails if the bench,
+  every test binary or the real app opens an `AF_INET` or `AF_INET6` socket
+  under `strace`. Everything runs under xvfb with a private session bus,
+  a temporary home and the in-memory GSettings backend, so the live desktop is
+  never touched.
+- **Attribution gate.** `tools/check_attribution.sh` fails CI when a commit
+  message or added line names the tool vendor.

@@ -9,6 +9,14 @@ constexpr auto kRetention = "retention_seconds";
 constexpr auto kMaxItems = "max_items";
 constexpr auto kStartPaused = "start_paused";
 constexpr auto kHotkey = "hotkey";
+constexpr auto kSecretRadar = "secret_radar_enabled";
+constexpr auto kSecretTtl = "secret_ttl_seconds";
+constexpr auto kSecretPinnedNeverExpire = "secret_pinned_never_expire";
+constexpr auto kSecretCopyBackWarning = "secret_copyback_warning";
+constexpr auto kSecretRiskyApps = "secret_risky_apps";
+constexpr auto kProvenance = "provenance_enabled";
+constexpr auto kProvenanceTitles = "provenance_titles";
+constexpr auto kProvenanceBlocklist = "provenance_blocklist";
 } // namespace
 
 SettingsService::SettingsService(SettingsRepository& repository, QObject* parent)
@@ -106,6 +114,121 @@ QString SettingsService::hotkey() const
 void SettingsService::setHotkey(const QString& sequence)
 {
     write(QLatin1String(kHotkey), sequence);
+}
+
+bool SettingsService::readFlag(const char* key, bool fallback) const
+{
+    return read(QLatin1String(key), fallback ? QStringLiteral("1") : QStringLiteral("0")) == QLatin1String("1");
+}
+
+void SettingsService::writeFlag(const char* key, bool value)
+{
+    write(QLatin1String(key), value ? QStringLiteral("1") : QStringLiteral("0"));
+}
+
+QStringList SettingsService::readList(const char* key, const char* fallback) const
+{
+    QStringList out;
+    const QStringList parts = read(QLatin1String(key), QLatin1String(fallback)).split(QLatin1Char(','));
+    for (const QString& part : parts) {
+        const QString item = part.trimmed().toLower();
+        if (!item.isEmpty())
+            out << item;
+    }
+    return out;
+}
+
+void SettingsService::writeList(const char* key, const QStringList& values)
+{
+    QStringList cleaned;
+    for (const QString& value : values) {
+        const QString item = value.trimmed().toLower().remove(QLatin1Char(','));
+        if (!item.isEmpty() && !cleaned.contains(item))
+            cleaned << item;
+    }
+    write(QLatin1String(key), cleaned.join(QLatin1Char(',')));
+}
+
+bool SettingsService::secretRadarEnabled() const
+{
+    return readFlag(kSecretRadar, true);
+}
+
+void SettingsService::setSecretRadarEnabled(bool enabled)
+{
+    writeFlag(kSecretRadar, enabled);
+}
+
+int SettingsService::secretTtlSeconds() const
+{
+    bool ok = false;
+    const int value = read(QLatin1String(kSecretTtl), QString::number(kDefaultSecretTtlSeconds)).toInt(&ok);
+    return ok ? qBound(kMinSecretTtlSeconds, value, kMaxSecretTtlSeconds) : kDefaultSecretTtlSeconds;
+}
+
+void SettingsService::setSecretTtlSeconds(int seconds)
+{
+    write(QLatin1String(kSecretTtl), QString::number(qBound(kMinSecretTtlSeconds, seconds, kMaxSecretTtlSeconds)));
+}
+
+bool SettingsService::secretPinnedNeverExpire() const
+{
+    return readFlag(kSecretPinnedNeverExpire, false);
+}
+
+void SettingsService::setSecretPinnedNeverExpire(bool enabled)
+{
+    writeFlag(kSecretPinnedNeverExpire, enabled);
+}
+
+bool SettingsService::secretCopyBackWarning() const
+{
+    return readFlag(kSecretCopyBackWarning, true);
+}
+
+void SettingsService::setSecretCopyBackWarning(bool enabled)
+{
+    writeFlag(kSecretCopyBackWarning, enabled);
+}
+
+QStringList SettingsService::secretRiskyApps() const
+{
+    return readList(kSecretRiskyApps, kDefaultSecretRiskyApps);
+}
+
+void SettingsService::setSecretRiskyApps(const QStringList& apps)
+{
+    writeList(kSecretRiskyApps, apps);
+}
+
+bool SettingsService::provenanceEnabled() const
+{
+    return readFlag(kProvenance, true);
+}
+
+void SettingsService::setProvenanceEnabled(bool enabled)
+{
+    writeFlag(kProvenance, enabled);
+}
+
+bool SettingsService::provenanceTitles() const
+{
+    return readFlag(kProvenanceTitles, false);
+}
+
+void SettingsService::setProvenanceTitles(bool enabled)
+{
+    writeFlag(kProvenanceTitles, enabled);
+}
+
+QStringList SettingsService::provenanceBlocklist() const
+{
+    return readList(kProvenanceBlocklist, kDefaultProvenanceBlocklist);
+}
+
+void SettingsService::setProvenanceBlocklist(const QStringList& apps)
+{
+    writeList(kProvenanceBlocklist, apps);
 }
 
 // The desktop entry is the only source of truth

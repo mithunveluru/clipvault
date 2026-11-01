@@ -9,7 +9,8 @@
 namespace clipvault {
 namespace {
 
-constexpr auto kColumns = "id, content, type, pinned, created_at, expires_at, content_hash";
+constexpr auto kColumns = "id, content, type, pinned, created_at, expires_at, content_hash,"
+                          " secret_kind, source_app, source_class, source_title, source_path, copied_into";
 
 ClipboardItem readRow(const QSqlQuery& query)
 {
@@ -22,6 +23,12 @@ ClipboardItem readRow(const QSqlQuery& query)
     if (!query.value(5).isNull())
         item.expiresAt = QDateTime::fromSecsSinceEpoch(query.value(5).toLongLong(), Qt::UTC);
     item.contentHash = query.value(6).toString();
+    item.secretKind = query.value(7).toString();
+    item.source.app = query.value(8).toString();
+    item.source.windowClass = query.value(9).toString();
+    item.source.title = query.value(10).toString();
+    item.source.path = query.value(11).toString();
+    item.copiedInto = query.value(12).toString();
     return item;
 }
 
@@ -36,6 +43,12 @@ QString escapeLike(const QString& text)
         out += ch;
     }
     return out;
+}
+
+// null keeps optional columns null rather than empty strings
+QVariant orNull(const QString& text)
+{
+    return text.isEmpty() ? QVariant(QMetaType(QMetaType::QString)) : QVariant(text);
 }
 
 bool reportFailure(const QSqlQuery& query, const char* what, QString* error = nullptr)
@@ -83,11 +96,25 @@ std::optional<ClipboardRepository::Stored> ClipboardRepository::upsert(const Cli
     if (lookup.next()) {
         const qint64 existingId = lookup.value(0).toLongLong();
         QSqlQuery update(m_db);
+        // an empty source keeps the old one so a blocked app cannot wipe it
         update.prepare(QStringLiteral(
-            "UPDATE clipboard_items SET created_at = ?, expires_at = ?, type = ? WHERE id = ?"));
+            "UPDATE clipboard_items SET created_at = ?, expires_at = ?, type = ?,"
+            " source_app = CASE WHEN ? THEN ? ELSE source_app END,"
+            " source_class = CASE WHEN ? THEN ? ELSE source_class END,"
+            " source_title = CASE WHEN ? THEN ? ELSE source_title END,"
+            " source_path = CASE WHEN ? THEN ? ELSE source_path END,"
+            " secret_kind = COALESCE(?, secret_kind)"
+            " WHERE id = ?"));
         update.addBindValue(createdAt);
         update.addBindValue(expiresAt);
         update.addBindValue(toString(item.type));
+        const int replaceSource = item.source.isEmpty() ? 0 : 1;
+        for (const QString* field : { &item.source.app, &item.source.windowClass, &item.source.title,
+                                      &item.source.path }) {
+            update.addBindValue(replaceSource);
+            update.addBindValue(orNull(*field));
+        }
+        update.addBindValue(orNull(item.secretKind));
         update.addBindValue(existingId);
         if (!update.exec())
             return rollback(update, "recency update");
@@ -100,14 +127,20 @@ std::optional<ClipboardRepository::Stored> ClipboardRepository::upsert(const Cli
 
     QSqlQuery insert(m_db);
     insert.prepare(QStringLiteral(
-        "INSERT INTO clipboard_items (content, type, pinned, created_at, expires_at, content_hash)"
-        " VALUES (?, ?, ?, ?, ?, ?)"));
+        "INSERT INTO clipboard_items (content, type, pinned, created_at, expires_at, content_hash,"
+        " secret_kind, source_app, source_class, source_title, source_path)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
     insert.addBindValue(item.content);
     insert.addBindValue(toString(item.type));
     insert.addBindValue(item.pinned ? 1 : 0);
     insert.addBindValue(createdAt);
     insert.addBindValue(expiresAt);
     insert.addBindValue(item.contentHash);
+    insert.addBindValue(orNull(item.secretKind));
+    insert.addBindValue(orNull(item.source.app));
+    insert.addBindValue(orNull(item.source.windowClass));
+    insert.addBindValue(orNull(item.source.title));
+    insert.addBindValue(orNull(item.source.path));
     if (!insert.exec())
         return rollback(insert, "insert");
 
@@ -149,20 +182,51 @@ std::optional<ClipboardItem> ClipboardRepository::findByHash(const QString& hash
 
 QList<ClipboardItem> ClipboardRepository::search(const QString& query, int limit) const
 {
-    const QString trimmed = query.trimmed();
-    QSqlQuery sql(m_db);
-    if (trimmed.isEmpty()) {
-        sql.prepare(QStringLiteral("SELECT %1 FROM clipboard_items"
-                                   " ORDER BY pinned DESC, created_at DESC LIMIT ?")
-                        .arg(QLatin1String(kColumns)));
-    } else {
+    SearchFilter filter;
+    filter.text = query.trimmed();
+    return search(filter, limit);
+}
+
+QList<ClipboardItem> ClipboardRepository::search(const SearchFilter& filter, int limit) const
+{
+    QStringList where;
+    QVariantList binds;
+    auto like = [](const QString& text) { return QLatin1Char('%') + escapeLike(text) + QLatin1Char('%'); };
+
+    const QString text = filter.text.trimmed();
+    if (!text.isEmpty()) {
         // LIKE is case insensitive for ASCII
-        sql.prepare(QStringLiteral("SELECT %1 FROM clipboard_items"
-                                   " WHERE content LIKE ? ESCAPE '\\'"
-                                   " ORDER BY pinned DESC, created_at DESC LIMIT ?")
-                        .arg(QLatin1String(kColumns)));
-        sql.addBindValue(QLatin1Char('%') + escapeLike(trimmed) + QLatin1Char('%'));
+        where << QStringLiteral("content LIKE ? ESCAPE '\\'");
+        binds << like(text);
     }
+    const QString app = filter.app.trimmed();
+    if (!app.isEmpty()) {
+        where << QStringLiteral("(source_app LIKE ? ESCAPE '\\' OR source_class LIKE ? ESCAPE '\\')");
+        binds << like(app) << like(app);
+    }
+    const QString title = filter.title.trimmed();
+    if (!title.isEmpty()) {
+        where << QStringLiteral("source_title LIKE ? ESCAPE '\\'");
+        binds << like(title);
+    }
+    if (filter.since) {
+        where << QStringLiteral("created_at >= ?");
+        binds << filter.since->toSecsSinceEpoch();
+    }
+    if (filter.until) {
+        where << QStringLiteral("created_at < ?");
+        binds << filter.until->toSecsSinceEpoch();
+    }
+
+    QString sqlText = QStringLiteral("SELECT %1 FROM clipboard_items").arg(QLatin1String(kColumns));
+    if (!where.isEmpty())
+        sqlText += QStringLiteral(" WHERE ") + where.join(QStringLiteral(" AND "));
+    sqlText += QStringLiteral(" ORDER BY pinned DESC, created_at DESC LIMIT ?");
+
+    QSqlQuery sql(m_db);
+    sql.prepare(sqlText);
+    for (const QVariant& value : binds)
+        sql.addBindValue(value);
     sql.addBindValue(limit);
 
     QList<ClipboardItem> results;
@@ -184,6 +248,26 @@ bool ClipboardRepository::setPinned(qint64 id, bool pinned)
     if (!query.exec())
         return reportFailure(query, "setPinned");
     return query.numRowsAffected() > 0;
+}
+
+bool ClipboardRepository::setCopiedInto(qint64 id, const QString& app)
+{
+    QSqlQuery query(m_db);
+    query.prepare(QStringLiteral("UPDATE clipboard_items SET copied_into = ? WHERE id = ?"));
+    query.addBindValue(orNull(app));
+    query.addBindValue(id);
+    if (!query.exec())
+        return reportFailure(query, "setCopiedInto");
+    return query.numRowsAffected() > 0;
+}
+
+bool ClipboardRepository::clearProvenance()
+{
+    QSqlQuery query(m_db);
+    if (!query.exec(QStringLiteral("UPDATE clipboard_items SET source_app = NULL, source_class = NULL,"
+                                   " source_title = NULL, source_path = NULL, copied_into = NULL")))
+        return reportFailure(query, "clearProvenance");
+    return true;
 }
 
 bool ClipboardRepository::remove(qint64 id)

@@ -22,7 +22,7 @@ public:
     QSqlDatabase handle() const;
     QString path() const { return m_path; }
 
-    static constexpr int kSchemaVersion = 1;
+    static constexpr int kSchemaVersion = 3;
 
     // Per user data directory never the source tree
     static QString defaultPath();

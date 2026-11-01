@@ -1,0 +1,14 @@
+BasedOnStyle: WebKit
+ColumnLimit: 110
+PointerAlignment: Left
+NamespaceIndentation: None
+FixNamespaceComments: true
+BreakConstructorInitializers: BeforeComma
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: true
+InsertBraces: false
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+Cpp11BracedListStyle: false
+SpaceBeforeCpp11BracedList: true

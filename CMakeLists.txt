@@ -8,18 +8,23 @@ project(ClipVault
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-find_package(Qt6 6.2 REQUIRED COMPONENTS Core Concurrent Gui Widgets Sql Network Test)
+option(CLIPVAULT_SEMANTIC "Build local semantic search, needs ONNXRUNTIME_ROOT" OFF)
+
+find_package(Qt6 6.2 REQUIRED COMPONENTS Core Concurrent DBus Gui Widgets Sql Network Test)
 qt_standard_project_setup()
 
 add_library(clipvault_lib STATIC
     src/core/ClipboardType.cpp
     src/core/Classifier.cpp
     src/core/Logging.cpp
+    src/core/SecretDetector.cpp
+    src/core/SecureZero.cpp
     src/storage/Database.cpp
     src/storage/ClipboardRepository.cpp
     src/storage/SettingsRepository.cpp
@@ -31,6 +36,8 @@ add_library(clipvault_lib STATIC
     src/platform/SingleInstance.cpp
     src/platform/GnomeGlobalHotkey.cpp
     src/platform/GlobalHotkeyFactory.cpp
+    src/platform/FocusTrackerFactory.cpp
+    src/platform/SourceLocation.cpp
     src/ui/ClipboardListModel.cpp
     src/ui/ClipboardItemDelegate.cpp
     src/ui/SettingsDialog.cpp
@@ -44,6 +51,10 @@ add_library(clipvault_lib STATIC
     src/core/ClipboardType.h
     src/core/Classifier.h
     src/core/Logging.h
+    src/core/Provenance.h
+    src/core/SearchFilter.h
+    src/core/SecretDetector.h
+    src/core/SecureZero.h
     src/storage/Database.h
     src/storage/ClipboardRepository.h
     src/storage/SettingsRepository.h
@@ -55,6 +66,8 @@ add_library(clipvault_lib STATIC
     src/platform/SingleInstance.h
     src/platform/GlobalHotkey.h
     src/platform/GnomeGlobalHotkey.h
+    src/platform/FocusTracker.h
+    src/platform/SourceLocation.h
     src/ui/ClipboardListModel.h
     src/ui/ClipboardItemDelegate.h
     src/ui/SettingsDialog.h
@@ -65,10 +78,25 @@ add_library(clipvault_lib STATIC
 
 target_include_directories(clipvault_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(clipvault_lib PUBLIC
-    Qt6::Core Qt6::Concurrent Qt6::Gui Qt6::Widgets Qt6::Sql Qt6::Network)
+    Qt6::Core Qt6::Concurrent Qt6::DBus Qt6::Gui Qt6::Widgets Qt6::Sql Qt6::Network)
+
+# sources added after the first release also build with warnings as errors
+set(CLIPVAULT_STRICT_SOURCES
+    src/core/SecretDetector.cpp
+    src/core/SecureZero.cpp
+    src/platform/FocusTrackerFactory.cpp
+    src/platform/SourceLocation.cpp
+)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(clipvault_lib PRIVATE -Wall -Wextra -Wpedantic)
+    if(CLIPVAULT_STRICT_SOURCES)
+        set_source_files_properties(${CLIPVAULT_STRICT_SOURCES} PROPERTIES COMPILE_OPTIONS -Werror)
+    endif()
+endif()
+
+if(CLIPVAULT_SEMANTIC)
+    target_compile_definitions(clipvault_lib PUBLIC CLIPVAULT_SEMANTIC=1)
 endif()
 
 qt_add_executable(clipvault src/main.cpp)

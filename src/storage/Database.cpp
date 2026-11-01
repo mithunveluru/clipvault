@@ -105,6 +105,8 @@ bool Database::open(QString* error)
     exec(db, QStringLiteral("PRAGMA synchronous = NORMAL"), &ignored);
     exec(db, QStringLiteral("PRAGMA busy_timeout = 3000"), &ignored);
     exec(db, QStringLiteral("PRAGMA foreign_keys = ON"), &ignored);
+    // deleted rows are overwritten so removed clips do not linger in free pages
+    exec(db, QStringLiteral("PRAGMA secure_delete = ON"), &ignored);
 
     // Reapplied every start so existing installations are repaired
     restrictToOwner(m_path, false);
@@ -171,6 +173,40 @@ bool Database::migrate(QString* error)
             "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
         };
         for (const char* sql : kV1) {
+            QString message;
+            if (!exec(db, QString::fromLatin1(sql), &message))
+                return fail(QStringLiteral("Schema migration failed:\n%1").arg(message));
+        }
+    }
+
+    if (version < 2) {
+        // secret and provenance columns stay null for rows written before v2
+        static const char* const kV2[] = {
+            "ALTER TABLE clipboard_items ADD COLUMN secret_kind TEXT",
+            "ALTER TABLE clipboard_items ADD COLUMN source_app TEXT",
+            "ALTER TABLE clipboard_items ADD COLUMN source_class TEXT",
+            "ALTER TABLE clipboard_items ADD COLUMN source_title TEXT",
+            "ALTER TABLE clipboard_items ADD COLUMN source_path TEXT",
+            "ALTER TABLE clipboard_items ADD COLUMN copied_into TEXT",
+        };
+        for (const char* sql : kV2) {
+            QString message;
+            if (!exec(db, QString::fromLatin1(sql), &message))
+                return fail(QStringLiteral("Schema migration failed:\n%1").arg(message));
+        }
+    }
+
+    if (version < 3) {
+        // created even when semantic search is compiled out so the schema never forks
+        static const char* const kV3[] = {
+            "CREATE TABLE clip_embeddings ("
+            "  item_id INTEGER PRIMARY KEY REFERENCES clipboard_items(id) ON DELETE CASCADE,"
+            "  model TEXT NOT NULL,"
+            "  dim INTEGER NOT NULL,"
+            "  content_hash TEXT NOT NULL,"
+            "  vector BLOB NOT NULL)",
+        };
+        for (const char* sql : kV3) {
             QString message;
             if (!exec(db, QString::fromLatin1(sql), &message))
                 return fail(QStringLiteral("Schema migration failed:\n%1").arg(message));

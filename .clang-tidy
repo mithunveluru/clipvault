@@ -1,0 +1,16 @@
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  modernize-use-nodiscard,
+  modernize-use-override,
+  modernize-use-nullptr,
+  modernize-make-unique,
+  performance-*,
+  -performance-enum-size,
+  cppcoreguidelines-owning-memory,
+  readability-const-return-type,
+  misc-const-correctness
+WarningsAsErrors: '*'
+HeaderFilterRegex: 'src/.*'

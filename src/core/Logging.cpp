@@ -16,6 +16,8 @@ Q_LOGGING_CATEGORY(lcApp, "clipvault.app")
 Q_LOGGING_CATEGORY(lcDb, "clipvault.db")
 Q_LOGGING_CATEGORY(lcClip, "clipvault.clipboard")
 Q_LOGGING_CATEGORY(lcHotkey, "clipvault.hotkey")
+Q_LOGGING_CATEGORY(lcFocus, "clipvault.focus")
+Q_LOGGING_CATEGORY(lcSecret, "clipvault.secret")
 
 namespace clipvault {
 
