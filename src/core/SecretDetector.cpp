@@ -64,6 +64,20 @@ const std::array<Rule, 15>& knownRules()
     return rules;
 }
 
+bool isPasswordRule(const Rule& rule)
+{
+    return qstrcmp(rule.kind, "password_assignment") == 0;
+}
+
+bool containsSpace(QStringView text)
+{
+    for (const QChar ch : text) {
+        if (ch.isSpace())
+            return true;
+    }
+    return false;
+}
+
 bool hasDigit(QStringView text)
 {
     for (const QChar ch : text) {
@@ -89,14 +103,22 @@ bool tailLooksRandom(const Rule& rule, const QRegularExpressionMatch& match)
     if (!rule.generic)
         return true;
     const QStringView value = match.capturedView(match.lastCapturedIndex());
+    // config.secret2 or next_token1 is a reference to a value and not the value
+    static const QRegularExpression identifier(
+        QStringLiteral(R"(^[A-Za-z_][A-Za-z0-9_]*([._][A-Za-z0-9_]+)+$)"));
+    if (isPasswordRule(rule) && identifier.match(value).hasMatch())
+        return false;
     return hasDigit(value) || hasPasswordSymbol(value);
 }
 
-SecretVerdict matchKnown(QStringView text, bool anchored)
+SecretVerdict matchKnown(QStringView text, bool anchored, bool singleToken)
 {
     const auto matchOption
         = anchored ? QRegularExpression::AnchorAtOffsetMatchOption : QRegularExpression::NoMatchOption;
     for (const Rule& rule : knownRules()) {
+        // password like rules only judge clips that are one token
+        if (isPasswordRule(rule) && !singleToken)
+            continue;
         if (rule.needle && !text.contains(QLatin1String(rule.needle), rule.needleCase))
             continue;
         auto it = rule.pattern.globalMatch(text, 0, QRegularExpression::NormalMatch, matchOption);
@@ -228,15 +250,6 @@ bool looksHighEntropy(QStringView token, const CharClasses& classes)
     return shannonEntropy(token) >= ceiling * 0.82;
 }
 
-bool containsSpace(QStringView text)
-{
-    for (const QChar ch : text) {
-        if (ch.isSpace())
-            return true;
-    }
-    return false;
-}
-
 } // namespace
 
 SecretVerdict detectSecret(QStringView text)
@@ -250,7 +263,7 @@ SecretVerdict detectSecret(QStringView text)
 
     // large clips only count when they start with a known secret
     const bool large = trimmed.size() > kSecretEmbeddedScanChars;
-    if (SecretVerdict known = matchKnown(trimmed, large); known.isSecret())
+    if (SecretVerdict known = matchKnown(trimmed, large, !containsSpace(trimmed)); known.isSecret())
         return known;
 
     if (containsSpace(trimmed))
