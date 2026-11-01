@@ -158,6 +158,11 @@ target_link_libraries(clipvault PRIVATE clipvault_lib)
 add_executable(clipvault_bench tools/bench.cpp)
 target_link_libraries(clipvault_bench PRIVATE clipvault_lib)
 
+if(CLIPVAULT_SEMANTIC)
+    add_executable(clipvault_semantic_bench tools/semantic_bench.cpp)
+    target_link_libraries(clipvault_semantic_bench PRIVATE clipvault_lib)
+endif()
+
 include(GNUInstallDirs)
 install(TARGETS clipvault RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES packaging/clipvault.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
