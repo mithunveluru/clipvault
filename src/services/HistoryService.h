@@ -41,6 +41,11 @@ public:
     bool setPinned(qint64 id, bool pinned);
     bool remove(qint64 id);
 
+    // app the entry was pasted into after a copy back
+    bool setCopiedInto(qint64 id, const QString& app);
+    // forgets every source and copied into value
+    bool clearProvenance();
+
     // Pinned entries are kept unless explicitly included
     bool clearAll(bool includePinned);
 

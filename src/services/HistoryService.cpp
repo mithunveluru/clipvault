@@ -193,6 +193,23 @@ bool HistoryService::remove(qint64 id)
     return true;
 }
 
+bool HistoryService::setCopiedInto(qint64 id, const QString& app)
+{
+    if (!m_repository.setCopiedInto(id, app))
+        return false;
+    emit historyChanged();
+    return true;
+}
+
+bool HistoryService::clearProvenance()
+{
+    if (!m_repository.clearProvenance())
+        return false;
+    qCInfo(lcApp) << "provenance cleared";
+    emit historyChanged();
+    return true;
+}
+
 bool HistoryService::clearAll(bool includePinned)
 {
     m_ephemeral.clear();

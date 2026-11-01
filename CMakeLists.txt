@@ -33,6 +33,7 @@ add_library(clipvault_lib STATIC
     src/services/SearchService.cpp
     src/services/EphemeralStore.cpp
     src/services/SecretCopyWarner.cpp
+    src/services/ProvenanceService.cpp
     src/clipboard/ClipboardMonitor.cpp
     src/platform/Autostart.cpp
     src/platform/SingleInstance.cpp
@@ -66,6 +67,7 @@ add_library(clipvault_lib STATIC
     src/services/SearchService.h
     src/services/EphemeralStore.h
     src/services/SecretCopyWarner.h
+    src/services/ProvenanceService.h
     src/clipboard/ClipboardMonitor.h
     src/platform/Autostart.h
     src/platform/SingleInstance.h
@@ -95,6 +97,7 @@ set(CLIPVAULT_STRICT_SOURCES
     src/services/EphemeralStore.cpp
     src/services/SecretCopyWarner.cpp
     src/platform/GnomeShellFocusTracker.cpp
+    src/services/ProvenanceService.cpp
 )
 
 # the x11 focus tracker is optional and the factory falls back without it
