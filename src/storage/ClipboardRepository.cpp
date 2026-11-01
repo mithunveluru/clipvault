@@ -196,7 +196,8 @@ QList<ClipboardItem> ClipboardRepository::search(const SearchFilter& filter, int
     const QString text = filter.text.trimmed();
     if (!text.isEmpty()) {
         // LIKE is case insensitive for ASCII
-        where << QStringLiteral("content LIKE ? ESCAPE '\\'");
+        // pinned secrets stay masked so their text must not confirm a guess
+        where << QStringLiteral("(secret_kind IS NULL AND content LIKE ? ESCAPE '\\')");
         binds << like(text);
     }
     const QString app = filter.app.trimmed();
@@ -285,6 +286,11 @@ bool ClipboardRepository::checkpoint()
     QSqlQuery query(m_db);
     if (!query.exec(QStringLiteral("PRAGMA wal_checkpoint(TRUNCATE)")))
         return reportFailure(query, "checkpoint");
+    // a busy checkpoint leaves deleted rows in the wal until the next one
+    if (query.next() && query.value(0).toInt() != 0) {
+        qCWarning(lcDb) << "wal checkpoint was busy";
+        return false;
+    }
     return true;
 }
 
