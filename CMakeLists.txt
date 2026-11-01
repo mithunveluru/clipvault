@@ -36,6 +36,7 @@ add_library(clipvault_lib STATIC
     src/services/EphemeralStore.cpp
     src/services/SecretCopyWarner.cpp
     src/services/ProvenanceService.cpp
+    src/services/EmbeddingEngine.cpp
     src/clipboard/ClipboardMonitor.cpp
     src/platform/Autostart.cpp
     src/platform/SingleInstance.cpp
@@ -75,6 +76,7 @@ add_library(clipvault_lib STATIC
     src/services/SecretCopyWarner.h
     src/services/ProvenanceService.h
     src/services/OnnxEmbeddingProvider.h
+    src/services/EmbeddingEngine.h
     src/clipboard/ClipboardMonitor.h
     src/platform/Autostart.h
     src/platform/SingleInstance.h
@@ -110,6 +112,7 @@ set(CLIPVAULT_STRICT_SOURCES
     src/core/WordPieceTokenizer.cpp
     src/services/OnnxEmbeddingProvider.cpp
     src/storage/EmbeddingRepository.cpp
+    src/services/EmbeddingEngine.cpp
 )
 
 # the x11 focus tracker is optional and the factory falls back without it
