@@ -2,7 +2,7 @@
 
 namespace clipvault::platform {
 
-// ponytail: stubs until the provenance platform work lands
+// stubs until the provenance platform work lands
 QString resolveSourcePath(const WindowInfo&)
 {
     return { };

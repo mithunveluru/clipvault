@@ -12,7 +12,7 @@ foreach(test IN LISTS CLIPVAULT_TESTS)
     add_test(NAME ${test} COMMAND ${test})
 endforeach()
 
-# suites added after 1.0 build with warnings as errors
+# suites added after the first release build with warnings as errors
 set(CLIPVAULT_STRICT_TESTS
     test_migration
     test_repository_fields

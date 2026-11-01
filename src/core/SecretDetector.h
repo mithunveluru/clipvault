@@ -14,7 +14,7 @@ enum class SecretConfidence {
 };
 
 struct SecretVerdict {
-    // stable rule id such as github-token and never any part of the text
+    // stable rule id and never any part of the text
     QString kind;
     SecretConfidence confidence = SecretConfidence::None;
 

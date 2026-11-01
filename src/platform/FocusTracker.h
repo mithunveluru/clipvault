@@ -8,7 +8,7 @@
 namespace clipvault::platform {
 
 struct WindowInfo {
-    // desktop file id or WM_CLASS instance shown to the user
+    // desktop file id or wm class instance shown to the user
     QString app;
     QString windowClass;
     // only filled when the tracker can see it and callers decide whether to keep it

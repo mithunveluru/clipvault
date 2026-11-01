@@ -6,8 +6,8 @@
 
 namespace clipvault::platform {
 
-// best effort path for the source window: terminal cwd from /proc or a file parsed from an
-// editor title or empty and never a guessed url
+// best effort path for the source window from a terminal cwd in proc or a file named in an
+// editor title and never a guessed url
 [[nodiscard]] QString resolveSourcePath(const WindowInfo& window);
 
 // opens an http or https url or an existing directory without a shell

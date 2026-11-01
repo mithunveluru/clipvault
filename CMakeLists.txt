@@ -80,7 +80,7 @@ target_include_directories(clipvault_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(clipvault_lib PUBLIC
     Qt6::Core Qt6::Concurrent Qt6::DBus Qt6::Gui Qt6::Widgets Qt6::Sql Qt6::Network)
 
-# sources added after 1.0 also build with -Werror
+# sources added after the first release also build with warnings as errors
 set(CLIPVAULT_STRICT_SOURCES
     src/core/SecretDetector.cpp
     src/core/SecureZero.cpp
