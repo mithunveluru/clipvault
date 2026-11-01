@@ -57,7 +57,7 @@ void ClipboardMonitor::writeBack(const QString& text)
     m_lastCapturedText = text;
     m_sinceLastCapture.restart();
     m_clipboard->setText(text, QClipboard::Clipboard);
-    qCDebug(lcClip) << "clipboard updated from history" << redact(text);
+    qCDebug(lcClip) << "clipboard updated from history" << text.size() << "chars";
 }
 
 void ClipboardMonitor::clearIfHolds(const QString& text)
@@ -119,7 +119,8 @@ void ClipboardMonitor::onClipboardChanged()
     m_lastCapturedText = text;
     m_sinceLastCapture.restart();
 
-    qCDebug(lcClip) << "clipboard change detected" << redact(text);
+    // length only because even a salted reference could link a secret across lines
+    qCDebug(lcClip) << "clipboard change detected" << text.size() << "chars";
     emit textCaptured(text);
 }
 
