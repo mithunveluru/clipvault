@@ -384,7 +384,7 @@ void TestProvenanceAdversarial::appChipStaysClearOfPinMarker()
         delegate.editorEvent(&release, &model, option, index);
     };
 
-    // the star sits in the last kPadding plus 18 pixels of the row which is inset by 4
+    // the star sits in the last padding plus 18 pixels of the row which is inset by 4
     option.rect = QRect(0, 0, 110, delegate.sizeHint(option, index).height());
     const int starRight = option.rect.right() - 4 - 10;
     for (int x = starRight - 18; x <= starRight; ++x) {
