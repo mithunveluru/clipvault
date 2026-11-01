@@ -71,3 +71,5 @@ jobs:
             range="${{ github.event.before }}..${{ github.sha }}"
           fi
           tools/check_attribution.sh "$range"
+          # catches leftover conflict markers and whitespace errors in added lines
+          git diff --check "$range"
