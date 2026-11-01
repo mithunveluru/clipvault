@@ -31,8 +31,8 @@ Written in C++20 with Qt 6. No server, no accounts, no network.
   timestamped without any interaction.
 - **No duplicate spam.** Re-copying something you already have updates its
   recency instead of adding a second row, and keeps its pin.
-- **Instant search.** Results update as you type; sub-millisecond at 10,000
-  entries (see [Performance](#performance)).
+- **Instant search.** Results update as you type, in about a millisecond or
+  less at 10,000 entries (see [Performance](#performance)).
 - **Keyboard first.** Open, search, navigate, select and paste without touching
   the mouse.
 - **Pinning.** Pinned entries sort to the top and are never removed by retention
@@ -392,13 +392,19 @@ estimates.
 |---|---|
 | Cold start to shortcut-ready | 59 / 70 / 68 ms over three runs |
 | Database open + migrate | 8.9 ms |
-| Insert (classify, hash, dedupe, store) | 0.143 ms per entry, mean over 10,000 |
-| Search, recent list | 0.24 ms |
-| Search, matching term | 0.32 ms |
-| Search, no matches (full scan) | 0.84 ms |
-| Resident memory, headless with 10,000 entries | 30 MB |
+| Insert (classify, hash, dedupe, store) | 0.12 ms per entry, mean over 10,000 |
+| Search, recent list | 0.33 ms |
+| Search, matching term | 0.44–0.50 ms |
+| Search, no matches (full scan) | 1.15–1.23 ms |
+| Resident memory, headless with 10,000 entries | 31 MB |
 | Resident memory, running with the window | 58 MB |
 | CPU while idle | 0 ticks over 10 s |
+
+The insert, search and headless memory rows are from 2026-11-02, after secret
+radar, clip sources and semantic search, as the median of five runs pinned to
+one core with `tools/bench.sh`. The other rows are from the first release.
+Search is about 35–50% slower than before those features; see
+[design notes](docs/design-notes.md).
 
 Search is a SQLite `LIKE` scan. At this size it is far below the threshold where
 anyone could perceive it, so FTS5 has not been introduced — it would add an
