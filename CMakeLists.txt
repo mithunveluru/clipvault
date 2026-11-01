@@ -100,6 +100,20 @@ set(CLIPVAULT_STRICT_SOURCES
 >>>>>>> e1150f8 (add gnome shell focus tracker and prefer it in the factory)
 )
 
+# the x11 focus tracker is optional and the factory falls back without it
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(XCB IMPORTED_TARGET xcb)
+endif()
+if(XCB_FOUND)
+    target_sources(clipvault_lib PRIVATE src/platform/X11FocusTracker.cpp src/platform/X11FocusTracker.h)
+    target_link_libraries(clipvault_lib PRIVATE PkgConfig::XCB)
+    target_compile_definitions(clipvault_lib PRIVATE CLIPVAULT_HAVE_XCB=1)
+    list(APPEND CLIPVAULT_STRICT_SOURCES src/platform/X11FocusTracker.cpp)
+else()
+    message(STATUS "xcb not found so the x11 focus tracker is not built")
+endif()
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(clipvault_lib PRIVATE -Wall -Wextra -Wpedantic)
     if(CLIPVAULT_STRICT_SOURCES)
