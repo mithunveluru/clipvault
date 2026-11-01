@@ -23,6 +23,7 @@ set(CLIPVAULT_STRICT_TESTS
     test_secret_copy_warner
     test_secret_gate
     test_secret_clipboard
+    test_secret_adversarial
 )
 
 foreach(test IN LISTS CLIPVAULT_STRICT_TESTS)
