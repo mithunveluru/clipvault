@@ -7,9 +7,9 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QMimeDatabase>
-#include <QRegularExpression>
 #include <QUrl>
 
+#include <algorithm>
 #include <filesystem>
 #include <utility>
 
@@ -50,24 +50,58 @@ struct Segment {
     QString hint;
 };
 
-// splits a trailing parenthesised or bracketed hint off a title segment
-Segment splitSegment(QString text)
+bool isDirtyMarker(QChar c)
 {
-    static const QRegularExpression dirty(QStringLiteral("^[\\x{25CF}\\x{2022}*]+\\s*"));
-    static const QRegularExpression trailingHint(QStringLiteral("^(.*?)\\s*[(\\[]([^()\\[\\]]*)[)\\]]$"));
-    static const QRegularExpression modified(QStringLiteral("\\s+[+*]$"));
-    text.remove(dirty);
+    return c == QChar(0x25CF) || c == QChar(0x2022) || c == QLatin1Char('*');
+}
+
+bool isDash(QChar c)
+{
+    return c == QLatin1Char('-') || c == QChar(0x2013) || c == QChar(0x2014);
+}
+
+// splits a trailing parenthesised or bracketed hint off a title segment in one pass
+Segment splitSegment(const QString& raw)
+{
+    qsizetype lead = 0;
+    while (lead < raw.size() && isDirtyMarker(raw.at(lead)))
+        ++lead;
+    QString text = raw.mid(lead).trimmed();
     Segment segment;
-    const QRegularExpressionMatch match = trailingHint.match(text);
-    if (match.hasMatch()) {
-        segment.name = match.captured(1);
-        segment.hint = match.captured(2).trimmed();
-    } else {
-        segment.name = std::move(text);
+    if (text.endsWith(QLatin1Char(')')) || text.endsWith(QLatin1Char(']'))) {
+        const qsizetype open
+            = std::max(text.lastIndexOf(QLatin1Char('(')), text.lastIndexOf(QLatin1Char('[')));
+        const QString inner = open >= 0 ? text.mid(open + 1, text.size() - open - 2) : QString();
+        if (open >= 0 && !inner.contains(QLatin1Char(')')) && !inner.contains(QLatin1Char(']'))) {
+            segment.hint = inner.trimmed();
+            text.truncate(open);
+            text = text.trimmed();
+        }
     }
-    segment.name.remove(modified);
-    segment.name = segment.name.trimmed();
+    if (text.size() >= 2 && (text.endsWith(QLatin1Char('+')) || text.endsWith(QLatin1Char('*')))
+        && text.at(text.size() - 2).isSpace())
+        text.chop(1);
+    segment.name = text.trimmed();
     return segment;
+}
+
+// splits on a dash with whitespace on both sides without a regex so huge titles stay linear
+QStringList splitTitle(const QString& title)
+{
+    QStringList parts;
+    qsizetype start = 0;
+    for (qsizetype i = 1; i + 1 < title.size(); ++i) {
+        if (isDash(title.at(i)) && title.at(i - 1).isSpace() && title.at(i + 1).isSpace()) {
+            const QString part = title.mid(start, i - start).trimmed();
+            if (!part.isEmpty())
+                parts << part;
+            start = i + 1;
+        }
+    }
+    const QString tail = title.mid(start).trimmed();
+    if (!tail.isEmpty())
+        parts << tail;
+    return parts;
 }
 
 QList<qint64> childrenOf(qint64 pid)
@@ -180,17 +214,20 @@ EditorKind editorKind(const WindowInfo& window)
 
 bool isVimTitle(const QString& title)
 {
-    static const QRegularExpression vim(
-        QStringLiteral("\\s-\\s(n|g)?vim$"), QRegularExpression::CaseInsensitiveOption);
-    return vim.match(title.trimmed()).hasMatch();
+    const QString trimmed = title.trimmed();
+    for (const QLatin1String suffix :
+        { QLatin1String(" - vim"), QLatin1String(" - nvim"), QLatin1String(" - gvim") }) {
+        if (trimmed.endsWith(suffix, Qt::CaseInsensitive))
+            return true;
+    }
+    return false;
 }
 
 QString pathFromEditorTitle(const QString& title, EditorKind kind, const QString& baseDir)
 {
     if (kind == EditorKind::None || title.contains(QLatin1String("://")))
         return { };
-    static const QRegularExpression separator(QStringLiteral("\\s+[-\\x{2013}\\x{2014}]\\s+"));
-    const QStringList parts = title.trimmed().split(separator, Qt::SkipEmptyParts);
+    const QStringList parts = splitTitle(title);
     if (parts.isEmpty())
         return { };
 
