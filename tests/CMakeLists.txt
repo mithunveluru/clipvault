@@ -25,6 +25,7 @@ set(CLIPVAULT_STRICT_TESTS
     test_secret_clipboard
     test_secret_adversarial
     test_source_location
+    test_focus_tracker
 )
 
 foreach(test IN LISTS CLIPVAULT_STRICT_TESTS)

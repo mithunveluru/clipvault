@@ -1,6 +1,7 @@
 #include "FocusTracker.h"
 
 #include "../core/Logging.h"
+#include "GnomeShellFocusTracker.h"
 
 namespace clipvault::platform {
 namespace {
@@ -23,6 +24,10 @@ public:
 
 std::unique_ptr<FocusTracker> createFocusTracker(QObject* parent)
 {
+    if (GnomeShellFocusTracker::isAvailable()) {
+        qCInfo(lcFocus) << "focus from the gnome shell extension";
+        return std::make_unique<GnomeShellFocusTracker>(parent);
+    }
     qCInfo(lcFocus) << "no focus tracking mechanism available";
     return std::make_unique<NullFocusTracker>(parent);
 }

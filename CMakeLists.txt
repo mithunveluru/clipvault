@@ -40,6 +40,7 @@ add_library(clipvault_lib STATIC
     src/platform/GlobalHotkeyFactory.cpp
     src/platform/FocusTrackerFactory.cpp
     src/platform/SourceLocation.cpp
+    src/platform/GnomeShellFocusTracker.cpp
     src/ui/ClipboardListModel.cpp
     src/ui/ClipboardItemDelegate.cpp
     src/ui/SettingsDialog.cpp
@@ -72,6 +73,7 @@ add_library(clipvault_lib STATIC
     src/platform/GnomeGlobalHotkey.h
     src/platform/FocusTracker.h
     src/platform/SourceLocation.h
+    src/platform/GnomeShellFocusTracker.h
     src/ui/ClipboardListModel.h
     src/ui/ClipboardItemDelegate.h
     src/ui/SettingsDialog.h
@@ -90,8 +92,12 @@ set(CLIPVAULT_STRICT_SOURCES
     src/core/SecureZero.cpp
     src/platform/FocusTrackerFactory.cpp
     src/platform/SourceLocation.cpp
+<<<<<<< HEAD
     src/services/EphemeralStore.cpp
     src/services/SecretCopyWarner.cpp
+=======
+    src/platform/GnomeShellFocusTracker.cpp
+>>>>>>> e1150f8 (add gnome shell focus tracker and prefer it in the factory)
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
