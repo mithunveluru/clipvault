@@ -34,6 +34,10 @@ ProvenanceService::ProvenanceService(platform::FocusTracker& tracker, const Sett
     , m_resolvePath(resolvePath ? std::move(resolvePath) : PathResolver(&platform::resolveSourcePath))
 {
     connect(&m_tracker, &platform::FocusTracker::focusChanged, this, &ProvenanceService::onFocusChanged);
+    connect(&m_settings, &SettingsService::changed, this, [this](const QString& key) {
+        if (key == QLatin1String("provenance_titles") && !m_settings.provenanceTitles())
+            m_history.clearSourceTitles();
+    });
 }
 
 bool ProvenanceService::isRecordable(const platform::WindowInfo& window) const

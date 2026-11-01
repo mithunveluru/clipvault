@@ -45,6 +45,8 @@ public:
     bool setCopiedInto(qint64 id, const QString& app);
     // forgets every source and copied into value
     bool clearProvenance();
+    // forgets every window title once title recording is turned off
+    bool clearSourceTitles();
 
     // Pinned entries are kept unless explicitly included
     bool clearAll(bool includePinned);

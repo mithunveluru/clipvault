@@ -97,8 +97,9 @@ void MainWindow::buildUi()
     searchLayout->addWidget(m_searchEdit);
     root->addWidget(searchRow);
 
-    m_titleNote = new QLabel(tr("Window titles are not recorded, so title: matches nothing. "
-                                "Turn on \u201cAlso record window titles\u201d in Settings, Privacy."),
+    m_titleNote = new QLabel(tr("Window titles are not recorded and turning them off removed the stored ones, "
+                                "so title: matches nothing. Turn on \u201cAlso record window titles\u201d in "
+                                "Settings, Privacy to record titles for clips copied from then on."),
                              this);
     m_titleNote->setObjectName(QStringLiteral("footerLabel"));
     m_titleNote->setWordWrap(true);

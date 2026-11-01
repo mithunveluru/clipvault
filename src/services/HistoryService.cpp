@@ -215,6 +215,16 @@ bool HistoryService::clearProvenance()
     return true;
 }
 
+bool HistoryService::clearSourceTitles()
+{
+    m_ephemeral.clearSourceTitles();
+    if (!m_repository.clearSourceTitles())
+        return false;
+    qCInfo(lcApp) << "source titles cleared";
+    emit historyChanged();
+    return true;
+}
+
 bool HistoryService::clearAll(bool includePinned)
 {
     m_ephemeral.clear();

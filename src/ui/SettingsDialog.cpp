@@ -203,7 +203,8 @@ void SettingsDialog::addProvenanceSection(QVBoxLayout* layout, QWidget* parent)
         tr("When this is on, ClipVault records for each clip: the application id and window class "
            "of the window you copied from; a best effort file or folder path (the terminal working "
            "directory, a file named in the editor title, or the clip itself when it is a web "
-           "address); the window title, only when “Also record window titles” is on; and "
+           "address); the window title, only when “Also record window titles” is on, and "
+           "turning that off removes every stored title; and "
            "the app you pasted into when you copy an item back out of ClipVault. Nothing is "
            "recorded for the apps listed below."),
         parent);
