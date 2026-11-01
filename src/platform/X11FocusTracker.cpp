@@ -162,6 +162,9 @@ WindowInfo X11FocusTracker::describe(std::uint32_t window) const
 
 void X11FocusTracker::watch(std::uint32_t window)
 {
+    // the root mask belongs to the constructor and must survive any active window value
+    if (window == m_root)
+        window = 0;
     if (window == m_watched)
         return;
     xcb_connection_t* c = m_connection.get();
@@ -181,7 +184,7 @@ void X11FocusTracker::refresh()
     const std::uint32_t window = activeWindow();
     watch(window);
     xcb_flush(m_connection.get());
-    const WindowInfo info = window != 0 ? describe(window) : WindowInfo { };
+    const WindowInfo info = window != 0 && window != m_root ? describe(window) : WindowInfo { };
     if (sameWindow(info, m_current))
         return;
     m_current = info;
