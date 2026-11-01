@@ -383,6 +383,13 @@ void MainWindow::openSettings()
     SettingsDialog dialog(m_settings, m_hotkeyNote, m_databasePath, m_paused, this);
     connect(&dialog, &SettingsDialog::clearHistoryRequested, this, &MainWindow::confirmClearHistory);
     connect(&dialog, &SettingsDialog::pauseToggleRequested, this, &MainWindow::pauseToggleRequested);
+    if (m_provenance) {
+        dialog.setFocusMechanism(m_provenance->mechanismDescription());
+        connect(&dialog, &SettingsDialog::clearProvenanceRequested, this, [this] {
+            if (!m_provenance->clearProvenance())
+                flashStatus(tr("Could not clear source information."));
+        });
+    }
     dialog.exec();
 }
 

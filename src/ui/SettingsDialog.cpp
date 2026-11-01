@@ -10,7 +10,9 @@
 #include <QKeySequenceEdit>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
+#include <QScreen>
 #include <QSpinBox>
 #include <QVBoxLayout>
 
@@ -24,6 +26,13 @@ SettingsDialog::SettingsDialog(SettingsService& settings, QString hotkeyNote, QS
     setWindowTitle(tr("ClipVault Settings"));
     setModal(true);
     buildUi(hotkeyNote, databasePath, capturePaused);
+    fitToContents();
+}
+
+void SettingsDialog::fitToContents()
+{
+    // the default two thirds of screen cap squeezes the wrapped privacy text
+    resize(sizeHint().boundedTo(screen()->availableGeometry().size()));
 }
 
 void SettingsDialog::buildUi(const QString& hotkeyNote, const QString& databasePath,
@@ -111,6 +120,8 @@ void SettingsDialog::buildUi(const QString& hotkeyNote, const QString& databaseP
     pathLabel->setEnabled(false);
     privacyLayout->addWidget(pathLabel);
 
+    addProvenanceSection(privacyLayout, privacy);
+
     root->addWidget(privacy);
 
     auto* radar = new QGroupBox(tr("Secret radar"), this);
@@ -174,6 +185,85 @@ void SettingsDialog::buildUi(const QString& hotkeyNote, const QString& databaseP
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::accept);
     root->addWidget(buttons);
+}
+
+void SettingsDialog::addProvenanceSection(QVBoxLayout* layout, QWidget* parent)
+{
+    m_provenanceEnabled = new QCheckBox(tr("Record where clips come from"), parent);
+    m_provenanceEnabled->setChecked(m_settings.provenanceEnabled());
+    layout->addWidget(m_provenanceEnabled);
+
+    m_provenanceTitles = new QCheckBox(tr("Also record window titles"), parent);
+    m_provenanceTitles->setChecked(m_settings.provenanceTitles());
+    connect(m_provenanceTitles, &QCheckBox::toggled, this,
+            [this](bool on) { m_settings.setProvenanceTitles(on); });
+    layout->addWidget(m_provenanceTitles);
+
+    auto* recorded = new QLabel(
+        tr("When this is on, ClipVault records for each clip: the application id and window class "
+           "of the window you copied from; a best effort file or folder path (the terminal working "
+           "directory, a file named in the editor title, or the clip itself when it is a web "
+           "address); the window title, only when “Also record window titles” is on; and "
+           "the app you pasted into when you copy an item back out of ClipVault. Nothing is "
+           "recorded for the apps listed below."),
+        parent);
+    recorded->setWordWrap(true);
+    layout->addWidget(recorded);
+
+    auto* blocklistLabel = new QLabel(tr("Never record these apps (app ids or window classes, "
+                                         "separated by commas):"),
+                                      parent);
+    blocklistLabel->setWordWrap(true);
+    layout->addWidget(blocklistLabel);
+    m_provenanceBlocklist = new QLineEdit(m_settings.provenanceBlocklist().join(QStringLiteral(", ")), parent);
+    m_provenanceBlocklist->setAccessibleName(tr("Apps never recorded as a source"));
+    connect(m_provenanceBlocklist, &QLineEdit::editingFinished, this, [this] {
+        m_settings.setProvenanceBlocklist(m_provenanceBlocklist->text().split(QLatin1Char(',')));
+        m_provenanceBlocklist->setText(m_settings.provenanceBlocklist().join(QStringLiteral(", ")));
+    });
+    layout->addWidget(m_provenanceBlocklist);
+
+    auto* clearSources = new QPushButton(tr("Clear source information…"), parent);
+    connect(clearSources, &QPushButton::clicked, this, [this] {
+        const auto answer = QMessageBox::question(
+            this, tr("Clear source information"),
+            tr("Forget the source app, window, path and pasted into app of every clip? "
+               "The clips themselves are kept."),
+            QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
+        if (answer == QMessageBox::Yes)
+            emit clearProvenanceRequested();
+    });
+    layout->addWidget(clearSources, 0, Qt::AlignLeft);
+
+    auto* bestEffort = new QLabel(
+        tr("This is best effort. On Wayland without the ClipVault GNOME Shell extension only "
+           "XWayland windows are seen. The terminal working directory and editor title parsing "
+           "are heuristics and can be wrong or missing."),
+        parent);
+    bestEffort->setWordWrap(true);
+    bestEffort->setEnabled(false);
+    layout->addWidget(bestEffort);
+
+    m_focusMechanism = new QLabel(parent);
+    m_focusMechanism->setWordWrap(true);
+    m_focusMechanism->setEnabled(false);
+    layout->addWidget(m_focusMechanism);
+
+    const auto applyEnabled = [this](bool on) {
+        m_provenanceTitles->setEnabled(on);
+        m_provenanceBlocklist->setEnabled(on);
+    };
+    applyEnabled(m_provenanceEnabled->isChecked());
+    connect(m_provenanceEnabled, &QCheckBox::toggled, this, [this, applyEnabled](bool on) {
+        m_settings.setProvenanceEnabled(on);
+        applyEnabled(on);
+    });
+}
+
+void SettingsDialog::setFocusMechanism(const QString& description)
+{
+    m_focusMechanism->setText(description);
+    fitToContents();
 }
 
 } // namespace clipvault
