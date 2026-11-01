@@ -1,5 +1,6 @@
 #include "SearchService.h"
 
+#include <QHash>
 #include <QRegularExpression>
 #include <QSet>
 #include <QStringList>
@@ -109,29 +110,30 @@ QList<ClipboardItem> SearchService::searchBlended(
     const QString& query, const QList<qint64>& semanticIds, int limit) const
 {
     const int cap = qBound(1, limit, 5000);
-    QList<ClipboardItem> results = search(query, cap);
+    const SearchFilter filter = parse(query, QDateTime::currentDateTime());
+    QList<ClipboardItem> results = m_repository.search(filter, cap);
     QSet<qint64> seen;
     for (const ClipboardItem& item : results)
         seen.insert(item.id);
+    // semantic hits obey the same prefixes as the lexical side
+    QHash<qint64, ClipboardItem> candidates;
+    for (ClipboardItem& item : m_repository.findFiltered(semanticIds, filter))
+        candidates.insert(item.id, std::move(item));
     for (const qint64 id : semanticIds) {
         if (results.size() >= cap)
             break;
-        if (seen.contains(id))
-            continue;
-        std::optional<ClipboardItem> item = m_repository.findById(id);
-        // pinned secrets stay masked so a meaning match must not surface them either
-        if (!item || !item->secretKind.isEmpty())
+        const auto found = candidates.constFind(id);
+        if (found == candidates.constEnd() || seen.contains(id))
             continue;
         seen.insert(id);
-        results.append(std::move(*item));
+        results.append(*found);
     }
     return results;
 }
 
-// prefixes such as app or title will be stripped here once the query parser exists
 QString SearchService::semanticText(const QString& query)
 {
-    return query.trimmed();
+    return parse(query, QDateTime::currentDateTime()).text;
 }
 
 } // namespace clipvault

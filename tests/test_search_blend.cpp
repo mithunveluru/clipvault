@@ -67,6 +67,55 @@ private slots:
         QCOMPARE(SearchService::semanticText(QStringLiteral("  red car \n")), QStringLiteral("red car"));
         QVERIFY(SearchService::semanticText(QStringLiteral("   ")).isEmpty());
     }
+
+    void semanticTextDropsPrefixes()
+    {
+        QCOMPARE(SearchService::semanticText(
+                     QStringLiteral("app:firefox meeting title:\"Team calendar\" notes date:today")),
+            QStringLiteral("meeting notes"));
+        // a query of prefixes alone leaves nothing to embed
+        QVERIFY(SearchService::semanticText(QStringLiteral("app:firefox from:konsole date:week")).isEmpty());
+        QVERIFY(SearchService::semanticText(QStringLiteral("title:")).isEmpty());
+    }
+
+    void semanticHitsObeyPrefixes()
+    {
+        Fixture fixture;
+        auto add = [&fixture](const QString& text, const QString& app, const QString& windowClass,
+                       const QString& title) {
+            Provenance source;
+            source.app = app;
+            source.windowClass = windowClass;
+            source.title = title;
+            return fixture.history().add(text, source).id;
+        };
+        const qint64 calendar = add(QStringLiteral("meeting moved to friday"), QStringLiteral("firefox"),
+            QStringLiteral("Navigator"), QStringLiteral("Team calendar"));
+        const qint64 shell = add(QStringLiteral("kubectl rollout restart"), QStringLiteral("konsole"),
+            QStringLiteral("konsole"), QStringLiteral("deploy shell"));
+        const qint64 byClass = add(QStringLiteral("deadline is next week"), QString(),
+            QStringLiteral("firefox-esr"), QStringLiteral("Mail"));
+        const qint64 old = fixture.insertRaw(
+            QStringLiteral("schedule from last month"), QDateTime::currentDateTimeUtc().addDays(-30));
+        const QList<qint64> semantic { shell, calendar, old, byClass };
+
+        const QList<QPair<QString, QList<qint64>>> cases {
+            { QStringLiteral("app:firefox plans"), { calendar, byClass } },
+            { QStringLiteral("from:konsole plans"), { shell } },
+            { QStringLiteral("title:calendar plans"), { calendar } },
+            { QStringLiteral("date:today plans"), { shell, calendar, byClass } },
+            { QStringLiteral("app:firefox title:mail plans"), { byClass } },
+            { QStringLiteral("plans"), semantic },
+        };
+        for (const auto& [query, expected] : cases) {
+            QCOMPARE(idsOf(fixture.search().searchBlended(query, semantic)), expected);
+            // the semantic side keeps exactly the rows the lexical side would allow under the same prefixes
+            const QString prefixes = query.chopped(QStringLiteral("plans").size());
+            const QList<qint64> allowed = idsOf(fixture.search().search(prefixes));
+            for (const qint64 id : semantic)
+                QCOMPARE(expected.contains(id), allowed.contains(id));
+        }
+    }
 };
 
 QTEST_GUILESS_MAIN(TestSearchBlend)
