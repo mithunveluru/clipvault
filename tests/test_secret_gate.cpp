@@ -153,6 +153,29 @@ private slots:
         QCOMPARE(model.data(row, Qt::DisplayRole).toString(), secretMask());
     }
 
+    void unpinnedSecretLeavesNoBytesOnDisk()
+    {
+        Fixture fixture;
+        QVERIFY2(fixture.isOpen(), qPrintable(fixture.openError()));
+        const QString secret = QStringLiteral("gh"
+                                              "p_GateUnpinnedSyntheticToken00000000000C3");
+        const auto outcome = fixture.history().add(secret);
+        QVERIFY(outcome.id < -1);
+        QVERIFY(fixture.history().setPinned(outcome.id, true));
+        const auto stored = fixture.repository().findByHash(HistoryService::hashOf(secret));
+        QVERIFY(stored.has_value());
+        QVERIFY(fixture.history().setPinned(stored->id, false));
+        QCOMPARE(fixture.history().ephemeral().count(), 1);
+
+        const QString db = fixture.databasePath();
+        for (const QString& path : { db, db + QStringLiteral("-wal") }) {
+            const QByteArray bytes = readAll(path);
+            for (const QByteArray& needle : needlesFor(secret))
+                QVERIFY2(!bytes.contains(needle),
+                    qPrintable(QStringLiteral("secret form found in %1").arg(QFileInfo(path).fileName())));
+        }
+    }
+
 private:
     QString logPath() const { return m_logDir.filePath(QStringLiteral("clipvault.log")); }
 

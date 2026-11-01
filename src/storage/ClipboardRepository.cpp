@@ -280,6 +280,14 @@ bool ClipboardRepository::remove(qint64 id)
     return query.numRowsAffected() > 0;
 }
 
+bool ClipboardRepository::checkpoint()
+{
+    QSqlQuery query(m_db);
+    if (!query.exec(QStringLiteral("PRAGMA wal_checkpoint(TRUNCATE)")))
+        return reportFailure(query, "checkpoint");
+    return true;
+}
+
 bool ClipboardRepository::clearAll(bool includePinned)
 {
     QSqlQuery query(m_db);

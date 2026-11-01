@@ -152,6 +152,7 @@ bool HistoryService::unpinSecret(const ClipboardItem& item)
 {
     if (!m_repository.remove(item.id))
         return false;
+    m_repository.checkpoint();
     qCInfo(lcSecret) << "secret unpinned and moved back to memory, kind" << item.secretKind << "length"
                      << item.content.size();
     m_ephemeral.add(item.content, item.secretKind, item.type, item.source,
@@ -185,6 +186,8 @@ bool HistoryService::remove(qint64 id)
         return m_ephemeral.remove(id);
     if (!m_repository.remove(id))
         return false;
+    // a deleted entry may be a pinned secret so its wal copy goes too
+    m_repository.checkpoint();
     qCDebug(lcApp) << "history item deleted";
     emit historyChanged();
     return true;
@@ -195,6 +198,7 @@ bool HistoryService::clearAll(bool includePinned)
     m_ephemeral.clear();
     if (!m_repository.clearAll(includePinned))
         return false;
+    m_repository.checkpoint();
     qCInfo(lcApp) << "history cleared" << (includePinned ? "(including pinned)" : "(pinned kept)");
     emit historyChanged();
     return true;
@@ -206,10 +210,15 @@ int HistoryService::runMaintenance()
     int expired = m_repository.deleteExpired(now);
     // pinned secrets still follow retention unless the user asked them to stay
     if (!m_settings.secretPinnedNeverExpire()) {
+        bool removedSecret = false;
         for (const ClipboardItem& item : pinnedSecrets()) {
-            if (item.expiresAt && *item.expiresAt <= now && m_repository.remove(item.id))
+            if (item.expiresAt && *item.expiresAt <= now && m_repository.remove(item.id)) {
                 ++expired;
+                removedSecret = true;
+            }
         }
+        if (removedSecret)
+            m_repository.checkpoint();
     }
     const int trimmed = m_repository.enforceLimit(m_settings.maxItems());
     const int removed = expired + trimmed;
