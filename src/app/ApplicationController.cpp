@@ -42,17 +42,21 @@ bool ApplicationController::initialize(const QString& databasePath, QString* err
     m_settings = std::make_unique<SettingsService>(*m_settingsRepository);
     m_history = std::make_unique<HistoryService>(*m_repository, *m_settings);
     m_search = std::make_unique<SearchService>(*m_repository);
+    m_focus = platform::createFocusTracker();
+    m_provenance = std::make_unique<ProvenanceService>(*m_focus, *m_settings, *m_history);
     m_monitor = std::make_unique<ClipboardMonitor>();
     m_hotkey = platform::createGlobalHotkey(m_instance);
-    m_focus = platform::createFocusTracker();
     m_copyWarner = std::make_unique<SecretCopyWarner>(*m_focus, *m_settings);
     m_window = std::make_unique<MainWindow>(*m_history, *m_search, *m_settings);
 
     m_window->setDatabasePath(m_database->path());
+    m_window->setProvenanceService(m_provenance.get());
     m_window->setHotkeyNote(m_hotkey->mechanismDescription());
 
     connect(m_monitor.get(), &ClipboardMonitor::textCaptured, this,
-            [this](const QString& text) { m_history->add(text); });
+            [this](const QString& text) { m_history->add(text, m_provenance->sourceFor(text)); });
+    connect(m_window.get(), &MainWindow::itemCopiedOut, m_provenance.get(),
+            &ProvenanceService::noteCopiedBack);
 
     // expiry clears the clipboard only while it still holds that secret
     m_history->ephemeral().setClipboardClearer(
@@ -239,8 +243,9 @@ void ApplicationController::shutdown()
     m_window.reset();
     m_hotkey.reset();
     m_copyWarner.reset();
-    m_focus.reset();
     m_monitor.reset();
+    m_provenance.reset();
+    m_focus.reset();
     m_search.reset();
     m_history.reset();
     m_settings.reset();
