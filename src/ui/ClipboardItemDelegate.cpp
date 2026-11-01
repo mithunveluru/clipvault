@@ -75,7 +75,12 @@ QRect ClipboardItemDelegate::appChipRect(const QStyleOptionViewItem& option, con
     const int left = row.left() + kPadding + kBadgeSize - 1 + kBadgeGap;
     const QFontMetrics metaMetrics(metaFontOf(option.font));
     const int top = row.top() + 8 + QFontMetrics(option.font).height() + metaMetrics.height() + 2;
-    const int width = qMin(metaMetrics.horizontalAdvance(app) + 2 * kChipPadding, (row.right() - left) / 2);
+    // same right edge as the text area in paint so the chip stays clear of the pin marker
+    const bool pinned = index.data(ClipboardListModel::PinnedRole).toBool();
+    const int right = pinned ? row.right() - kPadding - 18 - 6 : row.right() - kPadding;
+    const int width = qMin(metaMetrics.horizontalAdvance(app) + 2 * kChipPadding, (right - left) / 2);
+    if (width <= 0)
+        return { };
     return { left, top, width, metaMetrics.height() };
 }
 
