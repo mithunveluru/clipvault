@@ -32,6 +32,7 @@ add_library(clipvault_lib STATIC
     src/services/HistoryService.cpp
     src/services/SearchService.cpp
     src/services/EphemeralStore.cpp
+    src/services/SecretCopyWarner.cpp
     src/clipboard/ClipboardMonitor.cpp
     src/platform/Autostart.cpp
     src/platform/SingleInstance.cpp
@@ -63,6 +64,7 @@ add_library(clipvault_lib STATIC
     src/services/HistoryService.h
     src/services/SearchService.h
     src/services/EphemeralStore.h
+    src/services/SecretCopyWarner.h
     src/clipboard/ClipboardMonitor.h
     src/platform/Autostart.h
     src/platform/SingleInstance.h
@@ -89,6 +91,7 @@ set(CLIPVAULT_STRICT_SOURCES
     src/platform/FocusTrackerFactory.cpp
     src/platform/SourceLocation.cpp
     src/services/EphemeralStore.cpp
+    src/services/SecretCopyWarner.cpp
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

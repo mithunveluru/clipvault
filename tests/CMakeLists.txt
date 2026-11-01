@@ -21,6 +21,7 @@ set(CLIPVAULT_STRICT_TESTS
     test_ephemeral_store
     test_secret_history
     test_secret_clipboard
+    test_secret_copy_warner
 )
 
 foreach(test IN LISTS CLIPVAULT_STRICT_TESTS)
