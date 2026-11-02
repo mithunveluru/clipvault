@@ -77,6 +77,8 @@ which may be a password, an API key or a private message. ClipVault therefore:
   and overwrites deleted rows in place (`secure_delete`),
 - never writes window titles or file paths to the log, and records titles at
   all only when you turn that on,
+- with semantic search on, stores a vector computed from each clip in the same
+  database. Secrets never get one, and a vector is deleted with its clip,
 - offers pause, per-entry delete, clear-all and configurable retention.
 
 What ClipVault deliberately does **not** do is pretend to be a secure vault.
@@ -88,30 +90,32 @@ version rather than bolted on as a homemade cipher.
 ## Architecture
 
 ```
-                 ┌─────────────────────┐
-                 │      Qt UI          │
-                 │  MainWindow         │
-                 │  ClipboardListModel │
-                 │  SettingsDialog     │
-                 └──────────┬──────────┘
-                            │
-                            ▼
-                 ┌─────────────────────┐
-                 │     Services        │
-                 │                     │
-                 │ History / Search    │
-                 │ Settings            │
-                 └───────┬─────┬───────┘
-                         │     │
-                ┌────────▼─┐ ┌─▼────────────┐
-                │Repository│ │Clipboard     │
-                │          │ │Monitor       │
-                └────┬─────┘ └──────┬───────┘
-                     │              │
-                ┌────▼────┐    ┌────▼────┐
-                │ SQLite  │    │   OS    │
-                └─────────┘    │Clipboard│
-                               └─────────┘
+                 ┌──────────────────────────┐
+                 │          Qt UI           │
+                 │  MainWindow              │
+                 │  ClipboardListModel      │
+                 │  SettingsDialog          │
+                 │  ProvenanceDialog        │
+                 └────────────┬─────────────┘
+                              │
+                              ▼
+                 ┌──────────────────────────┐
+                 │         Services         │
+                 │  History / Search        │
+                 │  Settings / Provenance   │
+                 │  EphemeralStore          │
+                 │  SemanticIndex (opt.)    │
+                 └───┬─────────┬─────────┬──┘
+                     │         │         │
+          ┌──────────▼─┐ ┌─────▼─────┐ ┌─▼──────────────┐
+          │Repositories│ │Clipboard  │ │Platform        │
+          │            │ │Monitor    │ │FocusTracker    │
+          └─────┬──────┘ └─────┬─────┘ │Hotkey, Socket  │
+                │              │       └───────┬────────┘
+           ┌────▼────┐    ┌────▼────┐   ┌──────▼───────┐
+           │ SQLite  │    │   OS    │   │ X11, GNOME   │
+           └─────────┘    │Clipboard│   │ Shell, D-Bus │
+                          └─────────┘   └──────────────┘
 ```
 
 Dependencies point one way only: the UI calls services, services call
@@ -121,14 +125,23 @@ appears above `src/platform/`.
 
 ```
 src/
-├── core/        ClipboardItem, ClipboardType, Classifier, Logging
-├── storage/     Database (schema + migrations), ClipboardRepository, SettingsRepository
-├── services/    HistoryService, SearchService, SettingsService
+├── core/        ClipboardItem, ClipboardType, Classifier, Logging, SecretDetector,
+│                SecureZero, Provenance, SearchFilter, WordPieceTokenizer, EmbeddingProvider
+├── storage/     Database (schema + migrations), ClipboardRepository, SettingsRepository,
+│                EmbeddingRepository
+├── services/    HistoryService, SearchService, SettingsService, EphemeralStore,
+│                SecretCopyWarner, ProvenanceService, SemanticIndex, EmbeddingEngine,
+│                OnnxEmbeddingProvider (semantic builds only)
 ├── clipboard/   ClipboardMonitor
-├── platform/    GlobalHotkey (interface) + GNOME implementation, SingleInstance, Autostart
-├── ui/          MainWindow, ClipboardListModel, ClipboardItemDelegate, SettingsDialog
+├── platform/    GlobalHotkey (interface) + GNOME implementation, SingleInstance, Autostart,
+│                FocusTracker (interface) + X11 and GNOME Shell implementations, SourceLocation
+├── ui/          MainWindow, ClipboardListModel, ClipboardItemDelegate, SettingsDialog,
+│                ProvenanceDialog
 └── app/         ApplicationController, TrayIcon
 ```
+
+`packaging/gnome-extension` holds the optional GNOME Shell extension that
+reports focused windows on Wayland.
 
 `ApplicationController` owns the object graph and the lifecycle: load settings →
 open and migrate the database → build services → start capture → register the
@@ -142,12 +155,14 @@ shortcut → show the tray icon, and the reverse on shutdown.
 | Qt | 6.2 or newer — Core, Concurrent, DBus, Gui, Widgets, Sql, Network, Test |
 | SQLite | via the Qt `QSQLITE` driver plugin |
 | CMake | 3.21+ |
+| xcb | Optional, for clip sources on X11 and XWayland |
+| ONNX Runtime | Optional, only for a semantic search build |
 
 On Debian/Ubuntu:
 
 ```bash
 sudo apt install cmake ninja-build qt6-base-dev qt6-base-dev-tools \
-                 libqt6sql6-sqlite libgl1-mesa-dev
+                 libqt6sql6-sqlite libgl1-mesa-dev pkg-config libxcb1-dev
 ```
 
 ## Build
@@ -462,6 +477,8 @@ runaway copy cannot wedge the list or the search scan.
   official model file has not been checked against a download. Every test used
   a local export of the same model. If the hash is wrong, the feature refuses
   to turn on. See [docs/semantic-search.md](docs/semantic-search.md).
+- **Semantic search costs memory.** While it is on and ready, the model and
+  index add about 141 MB of resident memory.
 - **`Ctrl+Shift+V` collides with "paste as plain text"** in many applications.
   The desktop shortcut wins while ClipVault is running; change it in Settings if
   that is not what you want.
